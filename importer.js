@@ -30,17 +30,26 @@ function looksNegative(records, amountColumn) {
   return neg > pos;
 }
 
-// Turn file rows into clean expenses using the chosen columns.
+// Turn file rows into clean expenses and incomes using the chosen columns.
 // map = { date, amount, merchant, item, group } (header names).
 function readImportRows(records, map, expensesNegative) {
   const expenses = [];
-  let invalid = 0, income = 0;
+  const incomes = [];
+  let invalid = 0;
   records.forEach((r) => {
     const date = parseDate(r[map.date] || "");
     const amount = parseAmount(r[map.amount] || "");
     if (!date || amount === null || amount === 0) { invalid++; return; }
     const isExpense = expensesNegative ? amount < 0 : amount > 0;
-    if (!isExpense) { income++; return; }
+    if (!isExpense) {
+      // Money coming in, e.g. a paycheck
+      incomes.push({
+        date,
+        amount: Math.abs(amount),
+        name: String(r[map.merchant] || "").trim() || String(r[map.item] || "").trim() || "Income",
+      });
+      return;
+    }
     expenses.push({
       date,
       amount: Math.abs(amount),
@@ -49,14 +58,31 @@ function readImportRows(records, map, expensesNegative) {
       groupName: String(r[map.group] || "").trim(),
     });
   });
-  return { expenses, invalid, income };
+  return { expenses, incomes, invalid };
 }
 
-// Add expenses to the data. Creates missing months and budget items,
-// and skips expenses that already exist (same date, amount and merchant)
-// so importing the same file twice doesn't double everything.
-function applyImport(data, expenses, makeId) {
-  const stats = { added: 0, duplicates: 0, itemsCreated: 0, monthsCreated: [], months: [] };
+// Add imported rows to the data.
+// - Expenses become transactions. Missing months and budget items are created.
+//   Expenses that already exist (same date, amount and merchant) are skipped,
+//   so importing the same file twice doesn't double everything.
+// - Months created by an import are marked importedFrom: "EveryDollar".
+//   Only in those months the plan is built from the data: incomes become
+//   planned income, and each item's planned amount grows by what was spent.
+//   Months the user budgeted themselves keep their plan untouched.
+function applyImport(data, expenses, incomes, makeId) {
+  const stats = {
+    added: 0, duplicates: 0, itemsCreated: 0, monthsCreated: [], months: [],
+    incomesAdded: 0, incomesSkipped: 0,
+  };
+
+  // Get a month to put imported rows in, creating (and marking) it if needed.
+  function monthFor(monthKey) {
+    if (!data.months[monthKey]) {
+      data.months[monthKey] = { incomes: [], groups: [], importedFrom: "EveryDollar" };
+      stats.monthsCreated.push(monthKey);
+    }
+    return data.months[monthKey];
+  }
   const key = (t) => t.date + "|" + t.amount + "|" + normName(t.merchant);
   const existing = new Set(data.transactions.map(key));
 
@@ -97,16 +123,32 @@ function applyImport(data, expenses, makeId) {
   expenses.forEach((e) => {
     if (existing.has(key(e))) { stats.duplicates++; return; }
     const monthKey = e.date.slice(0, 7);
-    if (!data.months[monthKey]) {
-      data.months[monthKey] = { incomes: [], groups: [] };
-      stats.monthsCreated.push(monthKey);
-    }
-    const itemId = e.itemName ? findOrCreateItem(data.months[monthKey], e.itemName, e.groupName) : null;
+    const month = monthFor(monthKey);
+    const itemId = e.itemName ? findOrCreateItem(month, e.itemName, e.groupName) : null;
     data.transactions.push({
       id: makeId(), type: "expense", date: e.date, amount: e.amount,
       merchant: e.merchant, itemId, note: "",
     });
+    // Imported month: plan = what was actually spent
+    if (month.importedFrom && itemId) {
+      month.groups.forEach((g) => g.items.forEach((it) => {
+        if (it.id === itemId) it.planned = (it.planned || 0) + e.amount;
+      }));
+    }
     stats.added++;
+    if (!stats.months.includes(monthKey)) stats.months.push(monthKey);
+  });
+
+  incomes.forEach((inc) => {
+    const monthKey = inc.date.slice(0, 7);
+    // Don't add income to a month the user planned themselves
+    if (data.months[monthKey] && !data.months[monthKey].importedFrom) { stats.incomesSkipped++; return; }
+    const month = monthFor(monthKey);
+    const already = month.incomes.some((i) =>
+      i.date === inc.date && i.planned === inc.amount && normName(i.name) === normName(inc.name));
+    if (already) { stats.duplicates++; return; }
+    month.incomes.push({ id: makeId(), name: inc.name, planned: inc.amount, date: inc.date });
+    stats.incomesAdded++;
     if (!stats.months.includes(monthKey)) stats.months.push(monthKey);
   });
 

@@ -158,13 +158,15 @@ function updateImportPreview() {
     return;
   }
   const result = readImportRows(importRecords, map, signSelect.value === "negative");
-  let text = result.expenses.length + " expenses ready to import.";
-  if (result.income) text += " " + result.income + " income rows will be skipped.";
+  let text = result.expenses.length + " expenses";
+  if (result.incomes.length) text += " and " + result.incomes.length + " income rows";
+  text += " ready to import.";
   if (result.invalid) text += " " + result.invalid + " rows without a valid date or amount will be skipped.";
   if (!map.item) text += " No budget item column chosen: expenses will be uncategorized.";
   summary.textContent = text;
-  runBtn.disabled = result.expenses.length === 0;
-  runBtn.textContent = "Import " + result.expenses.length;
+  const count = result.expenses.length + result.incomes.length;
+  runBtn.disabled = count === 0;
+  runBtn.textContent = "Import " + count + " rows";
 }
 
 Object.values(mapSelects).forEach((s) => s.addEventListener("change", updateImportPreview));
@@ -181,9 +183,9 @@ document.getElementById("import-cancel").addEventListener("click", () => {
 });
 
 document.getElementById("import-run").addEventListener("click", () => {
-  const { expenses, income, invalid } =
+  const { expenses, incomes, invalid } =
     readImportRows(importRecords, currentMap(), signSelect.value === "negative");
-  const stats = applyImport(data, expenses, newId);
+  const stats = applyImport(data, expenses, incomes, newId);
   saveData();
   refreshAfterDataChange();
   importStep.hidden = true;
@@ -191,18 +193,27 @@ document.getElementById("import-run").addEventListener("click", () => {
 
   // Tell the user exactly what happened
   const parts = [];
-  if (stats.added) {
+  const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
+  if (stats.added || stats.incomesAdded) {
     const first = monthLabel(stats.months[0]);
     const last = monthLabel(stats.months[stats.months.length - 1]);
-    parts.push("Imported " + stats.added + " expenses (" + (first === last ? first : first + " – " + last) + ").");
+    let text = "Imported " + plural(stats.added, "expense");
+    if (stats.incomesAdded) text += " and " + plural(stats.incomesAdded, "income");
+    parts.push(text + " (" + (first === last ? first : first + " – " + last) + ").");
   } else {
     parts.push("Nothing new to import.");
   }
-  if (stats.monthsCreated.length) parts.push("Created " + stats.monthsCreated.length + " new month" + (stats.monthsCreated.length > 1 ? "s" : "") + ".");
-  if (stats.itemsCreated) parts.push("Added " + stats.itemsCreated + " budget item" + (stats.itemsCreated > 1 ? "s" : "") + " with $0 planned: set their amounts in the Budget tab.");
+  if (stats.monthsCreated.length) {
+    parts.push("Created " + plural(stats.monthsCreated.length, "new month") +
+      ", with a plan built from the imported data.");
+  }
+  if (stats.itemsCreated) parts.push("Added " + plural(stats.itemsCreated, "budget item") + ".");
+  if (stats.incomesSkipped) {
+    parts.push(plural(stats.incomesSkipped, "income row") +
+      " fell in months you had already budgeted, so your plan there was left as it is.");
+  }
   const skipped = [];
   if (stats.duplicates) skipped.push(stats.duplicates + " already imported");
-  if (income) skipped.push(income + " income");
   if (invalid) skipped.push(invalid + " unreadable");
   if (skipped.length) parts.push("Skipped: " + skipped.join(", ") + ".");
   showImportResult(parts.join(" "), false);

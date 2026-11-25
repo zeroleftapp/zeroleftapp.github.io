@@ -425,3 +425,15 @@ select {
   color: #11683a !important;
 }
 .import-result.error { background: var(--red-bg); color: var(--red) !important; }
+
+/* "Imported from EveryDollar" note at the top of an imported month */
+.import-note {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-left: 4px solid var(--blue);
+  border-radius: 8px;
+  background: #e8f0fe;
+  color: var(--muted);
+  font-size: 14px;
+}
+.import-note strong { display: block; color: var(--blue); font-size: 13px; }

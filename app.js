@@ -636,6 +636,8 @@ function render() {
   document.getElementById("budget-content").hidden = !month;
   updateFab();
 
+  document.getElementById("import-note").hidden = !(month && month.importedFrom);
+
   if (month) {
     renderIncomes();
     renderGroups();
