@@ -159,8 +159,8 @@ function updateTotals() {
   box.classList.toggle("over", left < 0);
   document.getElementById("ltb-label").textContent =
     left === 0 && incomeTotal > 0 ? "Every dollar has a job!"
-    : left < 0 ? "over budget"
-    : "left to budget";
+    : left < 0 ? "Over budget"
+    : "Left to budget";
 }
 
 // ===== Budget view =====
