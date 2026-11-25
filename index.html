@@ -2,9 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f6feb">
   <title>Budget</title>
+
+  <!-- PWA: app name, icons and "Add to Home Screen" settings -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Budget">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -169,5 +179,12 @@
   <script src="importer.js"></script>
   <script src="app.js"></script>
   <script src="settings.js"></script>
+  <script>
+    // Start the service worker (offline support). Browsers only allow this
+    // on a real web address (http/https), not when opening the file directly.
+    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
 </body>
 </html>
