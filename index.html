@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1f6feb">
+  <title>Budget</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Top bar: month name and the "left to budget" number -->
+  <header class="topbar">
+    <h1 id="month-title">Budget</h1>
+    <div id="left-to-budget" class="ltb">
+      <span id="ltb-amount" class="ltb-amount">$0.00</span>
+      <span id="ltb-label" class="ltb-label">left to budget</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Income section -->
+    <section class="card">
+      <div class="card-head">
+        <h2>Income</h2>
+        <span class="card-total" id="income-total">$0.00</span>
+      </div>
+      <ul class="rows" id="income-list"></ul>
+      <button class="add-btn" id="add-income">+ Add income</button>
+    </section>
+
+    <!-- Budget groups are rendered here by app.js -->
+    <div id="groups"></div>
+
+    <button class="add-group-btn" id="add-group">+ Add group</button>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
