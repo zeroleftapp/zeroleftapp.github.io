@@ -169,6 +169,9 @@
 
         <p class="import-result" id="import-result" hidden></p>
       </section>
+
+      <!-- Filled in by pwa.js, handy for checking that a phone got the update -->
+      <p class="app-version" id="app-version"></p>
     </div>
   </main>
 
@@ -207,12 +210,6 @@
   <script src="importer.js"></script>
   <script src="app.js"></script>
   <script src="settings.js"></script>
-  <script>
-    // Start the service worker (offline support). Browsers only allow this
-    // on a real web address (http/https), not when opening the file directly.
-    if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-      navigator.serviceWorker.register("sw.js");
-    }
-  </script>
+  <script src="pwa.js"></script>
 </body>
 </html>
