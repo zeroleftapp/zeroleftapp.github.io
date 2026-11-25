@@ -8,31 +8,82 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Top bar: month name and the "left to budget" number -->
+  <!-- Top bar: month name, "left to budget" and the view tabs -->
   <header class="topbar">
-    <h1 id="month-title">Budget</h1>
-    <div id="left-to-budget" class="ltb">
-      <span id="ltb-amount" class="ltb-amount">$0.00</span>
-      <span id="ltb-label" class="ltb-label">left to budget</span>
+    <div class="topbar-row">
+      <h1 id="month-title">Budget</h1>
+      <div id="left-to-budget" class="ltb">
+        <span id="ltb-amount" class="ltb-amount">$0.00</span>
+        <span id="ltb-label" class="ltb-label">left to budget</span>
+      </div>
     </div>
+    <nav class="tabs">
+      <button class="tab active" data-view="budget">Budget</button>
+      <button class="tab" data-view="transactions">Transactions</button>
+    </nav>
   </header>
 
   <main>
-    <!-- Income section -->
-    <section class="card">
-      <div class="card-head">
-        <h2>Income</h2>
-        <span class="card-total" id="income-total">$0.00</span>
-      </div>
-      <ul class="rows" id="income-list"></ul>
-      <button class="add-btn" id="add-income">+ Add income</button>
-    </section>
+    <!-- Budget view -->
+    <div id="view-budget">
+      <section class="card">
+        <div class="card-head">
+          <h2>Income</h2>
+          <span class="card-total" id="income-total">$0.00</span>
+        </div>
+        <ul class="rows" id="income-list"></ul>
+        <button class="add-btn" id="add-income">+ Add income</button>
+      </section>
 
-    <!-- Budget groups are rendered here by app.js -->
-    <div id="groups"></div>
+      <!-- Budget groups are rendered here by app.js -->
+      <div id="groups"></div>
 
-    <button class="add-group-btn" id="add-group">+ Add group</button>
+      <button class="add-group-btn" id="add-group">+ Add group</button>
+    </div>
+
+    <!-- Transactions view -->
+    <div id="view-transactions" hidden>
+      <section class="card">
+        <div class="card-head">
+          <h2>Transactions</h2>
+          <span class="card-total" id="tx-total">$0.00</span>
+        </div>
+        <ul class="tx-list" id="tx-list"></ul>
+        <p class="empty" id="tx-empty">No expenses yet. Tap + to add one.</p>
+      </section>
+    </div>
   </main>
+
+  <!-- Floating button: add an expense from anywhere -->
+  <button class="fab" id="fab" aria-label="Add expense">+</button>
+
+  <!-- Add / edit expense sheet -->
+  <dialog id="tx-dialog" class="sheet">
+    <form id="tx-form" novalidate>
+      <h2 id="tx-title">Add expense</h2>
+
+      <label class="amount-field">
+        <span>$</span>
+        <input id="tx-amount" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-label="Amount">
+      </label>
+
+      <div class="field-row">
+        <input id="tx-merchant" placeholder="Merchant (optional)" autocomplete="off" aria-label="Merchant">
+        <input id="tx-date" type="date" aria-label="Date">
+      </div>
+
+      <p class="pick-label">Budget item</p>
+      <div id="tx-items"></div>
+
+      <p class="error" id="tx-error"></p>
+
+      <div class="actions">
+        <button type="button" class="btn danger" id="tx-delete">Delete</button>
+        <button type="button" class="btn" id="tx-cancel">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="app.js"></script>
 </body>

@@ -8,6 +8,7 @@
   --blue: #1f6feb;
   --green: #1a9e55;
   --red: #d1383d;
+  --red-bg: #fff0f0;
 }
 
 * { box-sizing: border-box; }
@@ -20,18 +21,22 @@ body {
   font-size: 16px; /* 16px keeps iPhone from zooming into inputs */
 }
 
+[hidden] { display: none !important; }
+
 /* Sticky top bar so "left to budget" is always visible */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 10;
+  background: var(--card);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
-  background: var(--card);
-  border-bottom: 1px solid var(--line);
+  padding: 12px 16px 8px;
 }
 .topbar h1 { margin: 0; font-size: 20px; }
 
@@ -49,13 +54,28 @@ body {
 .ltb.zero .ltb-label { color: #fff; }
 .ltb.over .ltb-amount { color: var(--red); }
 
+/* Budget / Transactions tabs */
+.tabs { display: flex; padding: 0 16px; }
+.tab {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tab.active { color: var(--blue); border-bottom-color: var(--blue); }
+
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 16px 16px 96px; /* bottom space so the + button doesn't cover content */
 }
 
-/* A card = income section or one budget group */
+/* A card = income section, one budget group, or the transaction list */
 .card {
   background: var(--card);
   border-radius: 12px;
@@ -81,14 +101,38 @@ main {
   font-weight: 700;
 }
 
+/* Small "Planned" caption above the amount column */
+.col-caption {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 46px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .rows { list-style: none; margin: 0; padding: 0; }
 .row {
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.row-main {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--line);
 }
+/* "Spent · Remaining" line under each budget item */
+.row-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 46px 4px 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.row-stats .remaining { font-weight: 600; color: var(--text); }
+.row.over { background: var(--red-bg); border-radius: 8px; }
+.row.over .row-stats,
+.row.over .row-stats .remaining { color: var(--red); }
 
 /* Inputs look like plain text until tapped */
 input {
@@ -149,3 +193,113 @@ input:focus { outline: none; border-color: var(--blue); background: #fff; }
   font-weight: 600;
   cursor: pointer;
 }
+
+/* ----- Transaction list ----- */
+.tx-list { list-style: none; margin: 0; padding: 0; }
+.tx {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 4px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.tx:hover { background: var(--bg); }
+.tx-info { flex: 1; min-width: 0; }
+.tx-merchant {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tx-meta { font-size: 13px; color: var(--muted); }
+.tx-meta.missing { color: var(--red); }
+.tx-amount { font-weight: 600; }
+.empty { color: var(--muted); text-align: center; padding: 16px 0; margin: 0; }
+
+/* ----- Floating + button ----- */
+.fab {
+  position: fixed;
+  right: 20px;
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  z-index: 20;
+  width: 60px;
+  height: 60px;
+  border: none;
+  border-radius: 50%;
+  background: var(--blue);
+  color: #fff;
+  font-size: 32px;
+  line-height: 1;
+  box-shadow: 0 4px 12px rgba(31, 111, 235, 0.4);
+  cursor: pointer;
+}
+
+/* ----- Add / edit expense sheet ----- */
+.sheet {
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  margin: auto auto 0; /* sits at the bottom on phones */
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  border: none;
+  border-radius: 16px 16px 0 0;
+  background: var(--card);
+  color: var(--text);
+}
+.sheet::backdrop { background: rgba(0, 0, 0, 0.4); }
+@media (min-width: 600px) {
+  .sheet { margin: auto; border-radius: 16px; }
+}
+.sheet h2 { margin: 0 0 8px; font-size: 18px; }
+
+.amount-field {
+  display: flex;
+  align-items: center;
+  font-size: 32px;
+  font-weight: 700;
+  border-bottom: 2px solid var(--line);
+}
+.amount-field span { color: var(--muted); }
+.amount-field input { flex: 1; min-width: 0; font-size: 32px; font-weight: 700; }
+
+.field-row { display: flex; gap: 8px; margin-top: 8px; }
+.field-row input { border-color: var(--line); }
+#tx-merchant { flex: 1; min-width: 0; }
+
+.pick-label { margin: 12px 0 4px; font-size: 13px; color: var(--muted); }
+.chip-group { margin: 8px 0 2px; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+}
+.chip.selected { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+.error { min-height: 1.2em; margin: 8px 0 0; color: var(--red); font-size: 14px; }
+
+.actions { display: flex; gap: 8px; margin-top: 8px; }
+.btn {
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn.primary { flex: 1; background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn.danger { color: var(--red); margin-right: auto; }
