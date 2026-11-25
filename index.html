@@ -12,7 +12,15 @@
   <!-- The header box is as wide as the budget column below it -->
   <header class="topbar">
     <div class="topbar-box">
-      <h1 id="month-title">Budget</h1>
+      <!-- Month switcher: ‹ November 2026 › -->
+      <div class="month-nav">
+        <button class="nav-btn" id="prev-month" aria-label="Previous month">‹</button>
+        <div class="month-center">
+          <h1 id="month-title">Budget</h1>
+          <button class="today-btn" id="today-btn" hidden>Today</button>
+        </div>
+        <button class="nav-btn" id="next-month" aria-label="Next month">›</button>
+      </div>
       <div id="left-to-budget" class="ltb">
         <span id="ltb-label" class="ltb-label">Left to budget</span>
         <span id="ltb-amount" class="ltb-amount">$0.00</span>
@@ -27,6 +35,15 @@
   <main>
     <!-- Budget view -->
     <div id="view-budget">
+      <!-- Shown when the month has no budget yet -->
+      <section class="card new-month" id="new-month" hidden>
+        <h2 id="new-month-title">No budget for this month yet</h2>
+        <p id="new-month-text">Copy your plan from another month: income, groups and planned amounts. Spending is not copied.</p>
+        <button class="btn primary" id="copy-month">Copy plan</button>
+        <button class="btn" id="fresh-month">Start from scratch</button>
+      </section>
+
+      <div id="budget-content">
       <section class="card">
         <div class="card-head">
           <h2>Income</h2>
@@ -40,6 +57,7 @@
       <div id="groups"></div>
 
       <button class="add-group-btn" id="add-group">+ Add group</button>
+      </div>
     </div>
 
     <!-- Transactions view -->

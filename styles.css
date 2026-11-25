@@ -41,13 +41,65 @@ body {
   background: var(--card);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
-.topbar h1 {
-  margin: 0 0 8px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--muted);
-  text-align: center;
+/* Month switcher row */
+.month-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
 }
+.month-center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.topbar h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.nav-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.nav-btn:hover { background: var(--line); }
+.today-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--blue);
+  border-radius: 999px;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* "No budget for this month yet" card */
+.new-month { padding: 16px; text-align: center; }
+.new-month h2 { margin: 0 0 8px; font-size: 18px; }
+.new-month p { margin: 0 0 16px; color: var(--muted); }
+.new-month .btn { display: block; width: 100%; margin-top: 8px; }
+
+/* Date line under each income */
+.row-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 46px 4px 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.row-sub input { padding: 2px 4px; font-size: 16px; color: var(--muted); }
 
 /* The big "left to budget" panel. Blue = still money to assign,
    green = exactly zero (done!), red = planned more than income. */

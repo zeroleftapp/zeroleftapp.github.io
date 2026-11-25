@@ -17,30 +17,6 @@ function newId() {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// Today's date as "YYYY-MM-DD" in the user's own time zone.
-function todayString() {
-  const d = new Date();
-  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") +
-    "-" + String(d.getDate()).padStart(2, "0");
-}
-
-// The current month as "YYYY-MM", e.g. "2026-11".
-function currentMonthKey() {
-  return todayString().slice(0, 7);
-}
-
-// Build an empty month with the default groups.
-function newMonth() {
-  return {
-    incomes: [{ id: newId(), name: "Paycheck", planned: 0 }],
-    groups: DEFAULT_GROUPS.map((g) => ({
-      id: newId(),
-      name: g.name,
-      items: g.items.map((name) => ({ id: newId(), name, planned: 0 })),
-    })),
-  };
-}
-
 // Load saved data, or start fresh if nothing is saved yet.
 function loadData() {
   try {
@@ -59,15 +35,55 @@ function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
-const data = loadData();
-const monthKey = currentMonthKey();
-if (!data.months[monthKey]) {
-  data.months[monthKey] = newMonth();
-  saveData();
+// ===== Date helpers =====
+// Dates are plain strings: "2026-11-25" for days, "2026-11" for months.
+function pad(n) {
+  return String(n).padStart(2, "0");
 }
-const month = data.months[monthKey];
 
-// ===== Money and date helpers =====
+// Today's date as "YYYY-MM-DD" in the user's own time zone.
+function todayString() {
+  const d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+}
+
+function currentMonthKey() {
+  return todayString().slice(0, 7);
+}
+
+// "2026-11" + 1 -> "2026-12", "2026-01" - 1 -> "2025-12"
+function addMonths(key, n) {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  return d.getFullYear() + "-" + pad(d.getMonth() + 1);
+}
+
+function daysInMonth(key) {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m, 0).getDate();
+}
+
+// "2026-11" -> "November 2026"
+function monthLabel(key) {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m - 1).toLocaleString("en-US", { month: "long", year: "numeric" });
+}
+
+// "2026-11-25" -> "Nov 25"
+function formatDate(dateString) {
+  const [y, m, d] = dateString.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// Move a date to the same day in another month, e.g. Nov 15 -> Dec 15.
+// Days that don't exist (Jan 31 -> Feb) become the last day of the month.
+function sameDayIn(dateString, key) {
+  if (!dateString) return "";
+  const day = Math.min(Number(dateString.slice(8, 10)), daysInMonth(key));
+  return key + "-" + pad(day);
+}
+
+// ===== Money helpers =====
 // Work in whole cents so 0.1 + 0.2 adds up exactly.
 function toCents(value) {
   const n = parseFloat(String(value).replace(/[$,\s]/g, ""));
@@ -87,17 +103,69 @@ function amountForInput(cents) {
   return cents ? (cents / 100).toFixed(2) : "";
 }
 
-// "2026-11-25" -> "Nov 25"
-function formatDate(dateString) {
-  const [y, m, d] = dateString.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+// ===== Months =====
+// A fresh month with the default groups and one empty paycheck.
+function freshMonth() {
+  return {
+    incomes: [{ id: newId(), name: "Paycheck", planned: 0, date: "" }],
+    groups: DEFAULT_GROUPS.map((g) => ({
+      id: newId(),
+      name: g.name,
+      items: g.items.map((name) => ({ id: newId(), name, planned: 0 })),
+    })),
+  };
+}
+
+// Copy another month's plan: incomes (dates moved to the new month),
+// groups, items and planned amounts. Spending is not copied.
+// Ids stay the same, so "Groceries" is the same item in every month.
+function copyMonth(fromKey, toKey) {
+  const src = data.months[fromKey];
+  return {
+    incomes: src.incomes.map((i) => ({
+      id: i.id, name: i.name, planned: i.planned, date: sameDayIn(i.date, toKey),
+    })),
+    groups: src.groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      items: g.items.map((it) => ({ id: it.id, name: it.name, planned: it.planned })),
+    })),
+  };
+}
+
+// The closest month that already has a budget: earlier months first
+// ("copy from last month"), otherwise the nearest later one.
+function closestBudgetMonth(key) {
+  const keys = Object.keys(data.months).sort();
+  const earlier = keys.filter((k) => k < key);
+  if (earlier.length) return earlier[earlier.length - 1];
+  return keys.find((k) => k > key) || null;
+}
+
+// ===== App state =====
+const data = loadData();
+
+// The very first time, start the current month with default groups.
+if (Object.keys(data.months).length === 0) {
+  data.months[currentMonthKey()] = freshMonth();
+  saveData();
+}
+
+let viewMonth = currentMonthKey();    // the month on screen, "YYYY-MM"
+let month = data.months[viewMonth];   // its budget, or undefined if none yet
+
+function goToMonth(key) {
+  viewMonth = key;
+  month = data.months[key];
+  render();
+  window.scrollTo(0, 0);
 }
 
 // ===== Transactions =====
-// Expenses whose date falls in the month we're showing.
+// Expenses whose date falls in the month on screen.
 function monthExpenses() {
   return data.transactions.filter(
-    (t) => t.type === "expense" && t.date && t.date.startsWith(monthKey)
+    (t) => t.type === "expense" && t.date && t.date.startsWith(viewMonth)
   );
 }
 
@@ -110,8 +178,9 @@ function spentByItem() {
   return spent;
 }
 
-// Find a budget item (and its group) in this month by id.
+// Find a budget item (and its group) in the month on screen by id.
 function findItem(itemId) {
+  if (!month) return null;
   for (const group of month.groups) {
     const item = group.items.find((i) => i.id === itemId);
     if (item) return { item, group };
@@ -127,6 +196,17 @@ function sumPlanned(list) {
 // Update all numbers on the page without re-rendering
 // (re-rendering while typing would steal focus from the input).
 function updateTotals() {
+  const box = document.getElementById("left-to-budget");
+  const amountEl = document.getElementById("ltb-amount");
+  const labelEl = document.getElementById("ltb-label");
+
+  if (!month) {
+    amountEl.textContent = "$0.00";
+    labelEl.textContent = "No budget yet";
+    box.classList.remove("zero", "over");
+    return;
+  }
+
   const spent = spentByItem();
   const incomeTotal = sumPlanned(month.incomes);
   let plannedTotal = 0;
@@ -153,20 +233,20 @@ function updateTotals() {
   document.getElementById("income-total").textContent = formatMoney(incomeTotal);
 
   const left = incomeTotal - plannedTotal;
-  const box = document.getElementById("left-to-budget");
-  document.getElementById("ltb-amount").textContent = formatMoney(left);
+  amountEl.textContent = formatMoney(left);
   box.classList.toggle("zero", left === 0 && incomeTotal > 0);
   box.classList.toggle("over", left < 0);
-  document.getElementById("ltb-label").textContent =
+  labelEl.textContent =
     left === 0 && incomeTotal > 0 ? "Every dollar has a job!"
     : left < 0 ? "Over budget"
     : "Left to budget";
 }
 
 // ===== Budget view =====
-// Create one editable row (used for both incomes and budget items).
-// Budget items also get a "Spent · Remaining" line underneath.
-function rowElement(entry, placeholder, onDelete, withStats) {
+// Create one editable row. kind = "income" (gets a date line)
+// or "item" (gets a "Spent · Remaining" line).
+function rowElement(entry, kind, onDelete) {
+  const placeholder = kind === "income" ? "Income name" : "Item name";
   const li = document.createElement("li");
   li.className = "row";
 
@@ -213,7 +293,24 @@ function rowElement(entry, placeholder, onDelete, withStats) {
   main.append(name, money, del);
   li.append(main);
 
-  if (withStats) {
+  if (kind === "income") {
+    // Optional pay date, limited to the month on screen
+    const sub = document.createElement("label");
+    sub.className = "row-sub";
+    sub.textContent = "Date";
+    const date = document.createElement("input");
+    date.type = "date";
+    date.value = entry.date || "";
+    date.min = viewMonth + "-01";
+    date.max = viewMonth + "-" + pad(daysInMonth(viewMonth));
+    date.setAttribute("aria-label", "Income date");
+    date.addEventListener("change", () => {
+      entry.date = date.value;
+      saveData();
+    });
+    sub.append(date);
+    li.append(sub);
+  } else {
     li.dataset.itemRow = entry.id;
     const stats = document.createElement("div");
     stats.className = "row-stats";
@@ -228,12 +325,12 @@ function renderIncomes() {
   list.innerHTML = "";
   month.incomes.forEach((income) => {
     list.append(
-      rowElement(income, "Income name", () => {
+      rowElement(income, "income", () => {
         if (!confirm(`Delete "${income.name || "this income"}"?`)) return;
         month.incomes = month.incomes.filter((x) => x !== income);
         saveData();
         render();
-      }, false)
+      })
     );
   });
 }
@@ -284,12 +381,12 @@ function renderGroups() {
     list.className = "rows";
     group.items.forEach((item) => {
       list.append(
-        rowElement(item, "Item name", () => {
+        rowElement(item, "item", () => {
           if (!confirm(`Delete "${item.name || "this item"}"?\nExpenses in it will stay, but become uncategorized.`)) return;
           group.items = group.items.filter((x) => x !== item);
           saveData();
           render();
-        }, true)
+        })
       );
     });
 
@@ -315,6 +412,20 @@ function focusLastName(groupId) {
     : document.getElementById("income-list");
   const inputs = scope ? scope.querySelectorAll(".rows .name") : [];
   if (inputs.length) inputs[inputs.length - 1].focus();
+}
+
+// The "No budget for this month yet" card with copy / start fresh buttons.
+function renderNewMonthCard() {
+  const source = closestBudgetMonth(viewMonth);
+  document.getElementById("new-month-title").textContent =
+    "No budget for " + monthLabel(viewMonth) + " yet";
+  const copyBtn = document.getElementById("copy-month");
+  copyBtn.hidden = !source;
+  copyBtn.dataset.source = source || "";
+  if (source) copyBtn.textContent = "Copy plan from " + monthLabel(source);
+  document.getElementById("new-month-text").textContent = source
+    ? "Copies income, groups and planned amounts. Spending is not copied."
+    : "Start with the default groups and fill in your plan.";
 }
 
 // ===== Transactions view =====
@@ -401,11 +512,14 @@ function renderItemChips() {
 
 // Open the sheet empty (new expense) or filled in (editing one).
 function openExpenseSheet(transaction) {
+  if (!month) return;
   editing = transaction || null;
+  // New expenses default to today, or the 1st if viewing another month
+  const defaultDate = currentMonthKey() === viewMonth ? todayString() : viewMonth + "-01";
   document.getElementById("tx-title").textContent = editing ? "Edit expense" : "Add expense";
   amountInput.value = editing ? amountForInput(editing.amount) : "";
   merchantInput.value = editing ? editing.merchant : "";
-  dateInput.value = editing ? editing.date : todayString();
+  dateInput.value = editing ? editing.date : defaultDate;
   selectedItemId = editing && findItem(editing.itemId) ? editing.itemId : null;
   deleteBtn.hidden = !editing;
   errorBox.textContent = "";
@@ -480,20 +594,46 @@ document.querySelectorAll(".tab").forEach((tab) => {
   });
 });
 
+// ===== Month navigation =====
+document.getElementById("prev-month").addEventListener("click", () => goToMonth(addMonths(viewMonth, -1)));
+document.getElementById("next-month").addEventListener("click", () => goToMonth(addMonths(viewMonth, 1)));
+document.getElementById("today-btn").addEventListener("click", () => goToMonth(currentMonthKey()));
+
+document.getElementById("copy-month").addEventListener("click", (e) => {
+  data.months[viewMonth] = copyMonth(e.currentTarget.dataset.source, viewMonth);
+  saveData();
+  goToMonth(viewMonth);
+});
+
+document.getElementById("fresh-month").addEventListener("click", () => {
+  data.months[viewMonth] = freshMonth();
+  saveData();
+  goToMonth(viewMonth);
+});
+
 // ===== Draw everything =====
 function render() {
-  const [y, m] = monthKey.split("-");
-  document.getElementById("month-title").textContent = new Date(y, m - 1)
-    .toLocaleString("en-US", { month: "long", year: "numeric" });
-  renderIncomes();
-  renderGroups();
+  document.getElementById("month-title").textContent = monthLabel(viewMonth);
+  document.getElementById("today-btn").hidden = viewMonth === currentMonthKey();
+
+  // A month without a budget only shows the "copy / start fresh" card.
+  document.getElementById("new-month").hidden = !!month;
+  document.getElementById("budget-content").hidden = !month;
+  document.getElementById("fab").hidden = !month;
+
+  if (month) {
+    renderIncomes();
+    renderGroups();
+  } else {
+    renderNewMonthCard();
+  }
   renderTransactions();
   updateTotals();
 }
 
 // ===== Buttons that never get re-rendered =====
 document.getElementById("add-income").addEventListener("click", () => {
-  month.incomes.push({ id: newId(), name: "", planned: 0 });
+  month.incomes.push({ id: newId(), name: "", planned: 0, date: "" });
   saveData();
   render();
   focusLastName(null);
