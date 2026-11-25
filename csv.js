@@ -45,18 +45,52 @@ function toCSV(rows) {
   }).join(",")).join("\r\n");
 }
 
-// Money text -> signed cents. "$1,234.56" -> 123456, "(45.00)" -> -4500,
-// "-12" -> -1200. Returns null when it isn't a number.
+// Money text -> signed cents. The ONE place where the app reads amounts
+// (budget fields, expense form and CSV import all use it).
+// Both comma and dot work as the decimal separator:
+//   "33,5" and "33.5"           -> 3350
+//   "1,234.56" (US)             -> 123456
+//   "1 234,56" / "1.234,56" (EU) -> 123456
+//   "1,234" / "1.234"           -> 123400 (3 digits after = thousands)
+//   "$45", "-$12", "(45.00)"    -> 4500, -1200, -4500
+// Rule: if the LAST comma/dot has 1–2 digits after it, it's the decimal
+// separator; other commas, dots and spaces are thousands separators.
+// Returns null when the text isn't an amount.
 function parseAmount(text) {
   let s = String(text).trim();
   let negative = false;
-  if (/^\(.*\)$/.test(s)) { negative = true; s = s.slice(1, -1); }
-  s = s.replace(/[$,\s]/g, "");
-  if (s.startsWith("-")) { negative = !negative; s = s.slice(1); }
-  if (s.startsWith("+")) s = s.slice(1);
-  if (!/^\d*\.?\d+$/.test(s)) return null;
-  const cents = Math.round(parseFloat(s) * 100);
-  return negative ? -cents : cents;
+  if (/^\(.*\)$/.test(s)) { negative = true; s = s.slice(1, -1).trim(); }
+  if (/^[-−]/.test(s)) { negative = !negative; s = s.slice(1); }
+  else if (s.startsWith("+")) s = s.slice(1);
+  s = s.replace(/[$\s  ]/g, ""); // $ and spaces (also non-breaking)
+  if (/^[-−]/.test(s)) { negative = !negative; s = s.slice(1); } // "$-12"
+  if (!/^[\d.,]*\d[\d.,]*$/.test(s)) return null; // only digits , . left
+
+  let whole = s, cents = "00";
+  const last = Math.max(s.lastIndexOf(","), s.lastIndexOf("."));
+  if (last !== -1) {
+    const after = s.slice(last + 1);
+    if (after.length <= 2) {
+      // Decimal separator ("33," while typing counts as 33)
+      whole = s.slice(0, last);
+      cents = (after + "00").slice(0, 2);
+    }
+    // 3 digits after: thousands separator, handled below
+  }
+
+  // Whole part: plain digits, or digits grouped by 3 with ONE kind of
+  // separator ("1,234,567" or "1.234.567"), different from the decimal one.
+  const decimalSep = whole.length < s.length ? s[last] : "";
+  if (whole === "") whole = "0"; // ".5" -> 0.50
+  if (!/^\d+$/.test(whole)) {
+    const m = whole.match(/^\d{1,3}([.,])\d{3}(\1\d{3})*$/);
+    if (!m || m[1] === decimalSep) return null;
+    whole = whole.replace(/[.,]/g, "");
+  }
+  if (!/^\d{2}$/.test(cents)) return null;
+
+  const value = Number(whole) * 100 + Number(cents);
+  return negative ? -value : value;
 }
 
 // Date text -> "YYYY-MM-DD", or null if it can't be read.

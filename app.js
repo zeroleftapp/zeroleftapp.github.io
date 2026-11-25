@@ -85,9 +85,9 @@ function sameDayIn(dateString, key) {
 
 // ===== Money helpers =====
 // Work in whole cents so 0.1 + 0.2 adds up exactly.
+// Uses parseAmount from csv.js (comma or dot as decimal separator).
 function toCents(value) {
-  const n = parseFloat(String(value).replace(/[$,\s]/g, ""));
-  return isNaN(n) ? 0 : Math.round(n * 100);
+  return parseAmount(value) || 0;
 }
 
 function formatMoney(cents) {
