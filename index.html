@@ -28,6 +28,7 @@
       <nav class="tabs">
         <button class="tab active" data-view="budget">Budget</button>
         <button class="tab" data-view="transactions">Transactions</button>
+        <button class="tab" data-view="settings">Settings</button>
       </nav>
     </div>
   </header>
@@ -71,6 +72,60 @@
         <p class="empty" id="tx-empty">No expenses yet. Tap + to add one.</p>
       </section>
     </div>
+
+    <!-- Settings view: backup, export and import -->
+    <div id="view-settings" hidden>
+      <section class="card settings">
+        <h2>Backup</h2>
+        <p>Your data lives only in this browser. Download a backup now and then, and use it to move your budget to another device.</p>
+        <button class="btn primary" id="export-json">Download backup (.json)</button>
+        <button class="btn" id="restore-json">Restore from backup…</button>
+        <input type="file" id="restore-file" accept=".json,application/json" hidden>
+      </section>
+
+      <section class="card settings">
+        <h2>Export transactions</h2>
+        <p>All expenses as a spreadsheet file (opens in Excel, Numbers or Google Sheets).</p>
+        <button class="btn" id="export-csv">Download transactions (.csv)</button>
+      </section>
+
+      <section class="card settings">
+        <h2>Import from EveryDollar</h2>
+        <p>Choose one or more CSV files exported from EveryDollar. You can select several months at once.</p>
+        <button class="btn primary" id="import-choose">Choose CSV files…</button>
+        <input type="file" id="import-file" accept=".csv,text/csv" multiple hidden>
+
+        <!-- Shown after files are picked: column mapping + preview -->
+        <div id="import-step" hidden>
+          <p class="import-files" id="import-files"></p>
+
+          <p class="import-hint">Tell us which column is which:</p>
+          <div class="map-grid">
+            <label>Date <select id="map-date"></select></label>
+            <label>Amount <select id="map-amount"></select></label>
+            <label>Merchant <select id="map-merchant"></select></label>
+            <label>Budget item <select id="map-item"></select></label>
+            <label>Budget group <select id="map-group"></select></label>
+            <label>Expenses are
+              <select id="map-sign">
+                <option value="positive">positive amounts</option>
+                <option value="negative">negative amounts</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="table-wrap"><table id="import-table"></table></div>
+
+          <p class="import-summary" id="import-summary"></p>
+          <div class="actions">
+            <button class="btn" id="import-cancel">Cancel</button>
+            <button class="btn primary" id="import-run">Import</button>
+          </div>
+        </div>
+
+        <p class="import-result" id="import-result" hidden></p>
+      </section>
+    </div>
   </main>
 
   <!-- Floating button: add an expense from anywhere -->
@@ -104,6 +159,9 @@
     </form>
   </dialog>
 
+  <script src="csv.js"></script>
+  <script src="importer.js"></script>
   <script src="app.js"></script>
+  <script src="settings.js"></script>
 </body>
 </html>

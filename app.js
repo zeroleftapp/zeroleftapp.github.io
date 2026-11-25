@@ -584,15 +584,30 @@ dialog.addEventListener("click", (e) => {
 document.getElementById("fab").addEventListener("click", () => openExpenseSheet(null));
 
 // ===== Tabs =====
+let currentView = "budget"; // "budget", "transactions" or "settings"
+
 document.querySelectorAll(".tab").forEach((tab) => {
   tab.addEventListener("click", () => {
-    const view = tab.dataset.view;
+    currentView = tab.dataset.view;
     document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === tab));
-    document.getElementById("view-budget").hidden = view !== "budget";
-    document.getElementById("view-transactions").hidden = view !== "transactions";
+    ["budget", "transactions", "settings"].forEach((v) => {
+      document.getElementById("view-" + v).hidden = v !== currentView;
+    });
+    updateFab();
     window.scrollTo(0, 0);
   });
 });
+
+// The + button shows when the month has a budget and we're not in Settings.
+function updateFab() {
+  document.getElementById("fab").hidden = !month || currentView === "settings";
+}
+
+// Call after data was replaced or imported (used by settings.js).
+function refreshAfterDataChange() {
+  month = data.months[viewMonth];
+  render();
+}
 
 // ===== Month navigation =====
 document.getElementById("prev-month").addEventListener("click", () => goToMonth(addMonths(viewMonth, -1)));
@@ -619,7 +634,7 @@ function render() {
   // A month without a budget only shows the "copy / start fresh" card.
   document.getElementById("new-month").hidden = !!month;
   document.getElementById("budget-content").hidden = !month;
-  document.getElementById("fab").hidden = !month;
+  updateFab();
 
   if (month) {
     renderIncomes();
