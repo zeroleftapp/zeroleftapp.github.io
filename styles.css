@@ -148,7 +148,9 @@ body {
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: 16px 16px 96px; /* bottom space so the + button doesn't cover content */
+  /* Bottom space so everything can scroll above the + button:
+     button offset 20px + button 60px + 40px gap + iPhone home-bar area */
+  padding: 16px 16px calc(120px + env(safe-area-inset-bottom));
 }
 
 /* A card = income section, one budget group, or the transaction list */
@@ -438,3 +440,14 @@ select {
   font-size: 14px;
 }
 .import-note strong { display: block; color: var(--blue); font-size: 13px; }
+
+/* Backup reminder banner and "Last backup" line */
+.backup-banner {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fff6e0;
+  border: 1px solid #f2d58a;
+}
+.backup-banner p { margin: 0; font-size: 14px; }
+.last-backup { font-size: 14px; color: var(--text) !important; }

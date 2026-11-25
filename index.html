@@ -46,6 +46,15 @@
   <main>
     <!-- Budget view -->
     <div id="view-budget">
+      <!-- Backup reminder: data lives only on this device -->
+      <div class="backup-banner" id="backup-banner" hidden>
+        <p><strong>Time for a backup?</strong> Your budget is stored only on this device. A backup file keeps it safe if browser data gets cleared.</p>
+        <div class="actions">
+          <button class="btn" id="backup-later">Later</button>
+          <button class="btn primary" id="backup-now">Back up now</button>
+        </div>
+      </div>
+
       <!-- Shown when the month has no budget yet -->
       <section class="card new-month" id="new-month" hidden>
         <h2 id="new-month-title">No budget for this month yet</h2>
@@ -94,6 +103,7 @@
       <section class="card settings">
         <h2>Backup</h2>
         <p>Your data lives only in this browser. Download a backup now and then, and use it to move your budget to another device.</p>
+        <p class="last-backup" id="last-backup"></p>
         <button class="btn primary" id="export-json">Download backup (.json)</button>
         <button class="btn" id="restore-json">Restore from backup…</button>
         <input type="file" id="restore-file" accept=".json,application/json" hidden>

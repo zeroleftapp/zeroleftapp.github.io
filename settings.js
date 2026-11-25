@@ -14,10 +14,20 @@ function downloadFile(filename, text, type) {
 }
 
 // ----- (1) Full backup as JSON, and restore -----
-document.getElementById("export-json").addEventListener("click", () => {
+// Backup dates are kept in their own keys, so restoring a backup
+// doesn't change when the last backup was made.
+const LAST_BACKUP_KEY = "budget-app-last-backup";
+const FIRST_USE_KEY = "budget-app-first-use";
+const SNOOZE_KEY = "budget-app-backup-snoozed";
+
+function downloadBackup() {
   downloadFile("budget-backup-" + todayString() + ".json",
     JSON.stringify(data, null, 2), "application/json");
-});
+  localStorage.setItem(LAST_BACKUP_KEY, todayString());
+  updateBackupInfo();
+}
+
+document.getElementById("export-json").addEventListener("click", downloadBackup);
 
 const restoreFile = document.getElementById("restore-file");
 document.getElementById("restore-json").addEventListener("click", () => restoreFile.click());
@@ -224,3 +234,44 @@ function showImportResult(text, isError) {
   importResult.classList.toggle("error", isError);
   importResult.hidden = false;
 }
+
+// ----- Keeping data safe -----
+// Data lives in this browser only. Two safeguards:
+// 1. Ask the browser to keep our storage (not clear it to free up space).
+// 2. Remind the user to download a backup every couple of weeks.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
+if (!localStorage.getItem(FIRST_USE_KEY)) localStorage.setItem(FIRST_USE_KEY, todayString());
+
+const BACKUP_REMINDER_DAYS = 14;
+
+function daysSince(dateString) {
+  const [y, m, d] = dateString.split("-").map(Number);
+  const [ty, tm, td] = todayString().split("-").map(Number);
+  return Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(y, m - 1, d)) / 86400000);
+}
+
+// Show "Last backup" in Settings, and the reminder banner when it's due.
+function updateBackupInfo() {
+  const last = localStorage.getItem(LAST_BACKUP_KEY);
+  document.getElementById("last-backup").textContent =
+    "Last backup: " + (last ? formatDate(last) + ", " + last.slice(0, 4) : "never");
+
+  // Count from the newest of: last backup, "Later" tap, first use.
+  const dates = [last, localStorage.getItem(SNOOZE_KEY), localStorage.getItem(FIRST_USE_KEY)]
+    .filter(Boolean).sort();
+  const reference = dates[dates.length - 1];
+  const hasData = data.transactions.length > 0;
+  document.getElementById("backup-banner").hidden =
+    !hasData || !reference || daysSince(reference) < BACKUP_REMINDER_DAYS;
+}
+
+document.getElementById("backup-now").addEventListener("click", downloadBackup);
+document.getElementById("backup-later").addEventListener("click", () => {
+  localStorage.setItem(SNOOZE_KEY, todayString());
+  updateBackupInfo();
+});
+
+updateBackupInfo();
