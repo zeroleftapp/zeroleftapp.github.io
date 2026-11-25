@@ -46,6 +46,24 @@
   <main>
     <!-- Budget view -->
     <div id="view-budget">
+      <!-- iPhone only: tip to add the app to the Home Screen (settings.js) -->
+      <div class="tip-banner" id="ios-tip" hidden>
+        <p><strong class="tip-title">Add Budget to your Home Screen</strong>
+          Safari can delete website data if you don't open it for a week. On the Home Screen, your budget stays safe.</p>
+        <ol>
+          <li>Tap the Share button
+            <svg class="share-icon" viewBox="0 0 24 24" aria-label="Share" role="img"><path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            in Safari's toolbar.</li>
+          <li>Choose <strong>Add to Home Screen</strong>.</li>
+          <li>Open Budget from your Home Screen.</li>
+        </ol>
+        <p class="tip-move" id="ios-tip-move">The Home Screen app starts empty, because it keeps its own data. To move what you've entered here: download a backup now, then use <strong>Settings → Restore from backup</strong> in the Home Screen app.</p>
+        <div class="actions">
+          <button class="btn" id="ios-tip-backup">Download backup</button>
+          <button class="btn primary" id="ios-tip-ok">Got it</button>
+        </div>
+      </div>
+
       <!-- Backup reminder: data lives only on this device -->
       <div class="backup-banner" id="backup-banner" hidden>
         <p><strong>Time for a backup?</strong> Your budget is stored only on this device. A backup file keeps it safe if browser data gets cleared.</p>

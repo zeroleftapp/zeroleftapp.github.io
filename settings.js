@@ -238,14 +238,15 @@ function showImportResult(text, isError) {
 // ----- Keeping data safe -----
 // Data lives in this browser only. Two safeguards:
 // 1. Ask the browser to keep our storage (not clear it to free up space).
-// 2. Remind the user to download a backup every couple of weeks.
+// 2. Remind the user to download a backup once a month.
+// 3. Tell iPhone users (once) to add the app to the Home Screen.
 if (navigator.storage && navigator.storage.persist) {
   navigator.storage.persist().catch(() => {});
 }
 
 if (!localStorage.getItem(FIRST_USE_KEY)) localStorage.setItem(FIRST_USE_KEY, todayString());
 
-const BACKUP_REMINDER_DAYS = 14;
+const BACKUP_REMINDER_DAYS = 30;
 
 function daysSince(dateString) {
   const [y, m, d] = dateString.split("-").map(Number);
@@ -275,3 +276,34 @@ document.getElementById("backup-later").addEventListener("click", () => {
 });
 
 updateBackupInfo();
+
+// ----- iPhone: "Add to Home Screen" tip (shown until dismissed) -----
+// On iPhone/iPad, Safari may delete a website's data if it isn't opened
+// for 7 days. Apps added to the Home Screen are not affected.
+// Note: the Home Screen app keeps its OWN data, separate from Safari,
+// so it's best to do this before starting to budget.
+const IOS_TIP_KEY = "budget-app-ios-tip-dismissed";
+
+function isIOS() {
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); // iPadOS
+}
+
+function isInstalled() {
+  return navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+}
+
+function updateIOSTip() {
+  const show = isIOS() && !isInstalled() && !localStorage.getItem(IOS_TIP_KEY);
+  document.getElementById("ios-tip").hidden = !show;
+  // Already has data? Then they need a backup to move it to the Home Screen app.
+  document.getElementById("ios-tip-move").hidden = data.transactions.length === 0;
+}
+
+document.getElementById("ios-tip-ok").addEventListener("click", () => {
+  localStorage.setItem(IOS_TIP_KEY, todayString());
+  updateIOSTip();
+});
+document.getElementById("ios-tip-backup").addEventListener("click", downloadBackup);
+
+updateIOSTip();
