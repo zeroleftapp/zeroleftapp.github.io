@@ -32,7 +32,7 @@
       <p class="lead">The same zero-based budget you know, without the subscription. No account, no bank login. Your data stays on your device.</p>
 
       <button class="btn primary big" id="welcome-import">Import from EveryDollar</button>
-      <p class="welcome-help">Export your transactions from EveryDollar as CSV files (one per month is fine), then choose them all at once. You'll see a preview before anything is imported.</p>
+      <p class="welcome-help">On everydollar.com, open each month, scroll to the bottom and click <strong>Download as CSV</strong> (pick the option with your transactions). Then choose all the files here at once. You'll see a preview before anything is imported.</p>
       <button class="btn big" id="welcome-fresh">Start fresh</button>
 
       <ul class="why">
@@ -167,7 +167,7 @@
 
       <section class="card settings">
         <h2>Import from EveryDollar</h2>
-        <p>Choose one or more CSV files exported from EveryDollar. You can select several months at once.</p>
+        <p>On <strong>everydollar.com</strong> (the website, not the phone app), open a month, scroll to the bottom of the budget and click <strong>Download as CSV</strong>. Pick the option that includes your transactions. Repeat for each month, then choose all the files here at once. Exporting requires EveryDollar Premium.</p>
         <button class="btn primary" id="import-choose">Choose CSV files…</button>
         <input type="file" id="import-file" accept=".csv,text/csv" multiple hidden>
 
@@ -182,7 +182,9 @@
             <label>Merchant <select id="map-merchant"></select></label>
             <label>Budget item <select id="map-item"></select></label>
             <label>Budget group <select id="map-group"></select></label>
-            <label>Expenses are
+            <label>Type (income / expense) <select id="map-type"></select></label>
+            <label>Note <select id="map-note"></select></label>
+            <label id="map-sign-label">Expenses are
               <select id="map-sign">
                 <option value="positive">positive amounts</option>
                 <option value="negative">negative amounts</option>

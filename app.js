@@ -534,7 +534,8 @@ function closeExpenseSheet() {
 form.addEventListener("submit", (e) => {
   e.preventDefault();
   const amount = toCents(amountInput.value);
-  if (amount <= 0) {
+  // Negative amounts are allowed: a refund lowers what was spent
+  if (amount === 0) {
     errorBox.textContent = "Enter an amount.";
     amountInput.focus();
     return;

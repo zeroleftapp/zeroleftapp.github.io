@@ -531,3 +531,4 @@ a { color: var(--blue); }
 .import-go { display: block; width: 100%; margin-top: 8px; }
 /* Keep the import step clear of the sticky header when scrolled to */
 #import-step { scroll-margin-top: 200px; }
+select:disabled { opacity: 0.5; }

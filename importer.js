@@ -8,22 +8,51 @@ function normName(s) {
 
 // Guess which column is which from the header names.
 // Returns header names (or "" when no good guess).
+// EveryDollar's transaction export most likely has the columns
+// Group, Item, Type, Date, Merchant, Account, Amount, Note
+// (dates MM/DD/YYYY, spending negative). Other spellings like
+// "Budget Item" or "Merchant Description" are recognized too.
 function guessColumns(headers) {
-  const find = (test) => headers.find((h) => test(h.toLowerCase())) || "";
+  const find = (test) => headers.find((h) => test(h.trim().toLowerCase())) || "";
   return {
     date: find((h) => h.includes("date")),
     amount: find((h) => h.includes("amount") || h === "amt"),
     merchant: find((h) => /merchant|payee|description|^name$/.test(h)),
     item: find((h) => /item|category|budget/.test(h) && !h.includes("group")),
     group: find((h) => h.includes("group")),
+    type: find((h) => h === "type" || h.includes("type")),
+    note: find((h) => /note|memo/.test(h)),
   };
 }
 
-// Are most amounts negative? Then expenses are probably the negative ones.
-function looksNegative(records, amountColumn) {
+// EveryDollar also exports a budget summary (Group, Item, Planned, Spent,
+// Remaining) with no dates. It isn't a list of transactions, so the
+// import skips it and says so.
+function isBudgetSummaryFile(headers) {
+  const h = headers.map((x) => x.trim().toLowerCase());
+  return h.includes("planned") && h.includes("remaining") && !h.some((x) => x.includes("date"));
+}
+
+// Is this row income? With a Type column ("Income" / "Expense") or an
+// "Income" budget group we trust that; otherwise we go by the amount's sign.
+function rowIsIncome(r, map, amount, expensesNegative) {
+  if (map.type) {
+    const type = normName(r[map.type]);
+    if (type) return /income|deposit|credit/.test(type);
+  }
+  if (map.group && normName(r[map.group]) === "income") return true;
+  return expensesNegative ? amount > 0 : amount < 0;
+}
+
+// Are most expense amounts negative? Then expenses are the negative ones.
+// map = { amount, type?, group? }. Rows that the Type column or an
+// "Income" group mark as income are left out of the count.
+function looksNegative(records, map) {
   let neg = 0, pos = 0;
   records.forEach((r) => {
-    const a = parseAmount(r[amountColumn] || "");
+    if (map.type && /income|deposit|credit/.test(normName(r[map.type]))) return;
+    if (map.group && normName(r[map.group]) === "income") return;
+    const a = parseAmount(r[map.amount] || "");
     if (a < 0) neg++;
     else if (a > 0) pos++;
   });
@@ -31,7 +60,8 @@ function looksNegative(records, amountColumn) {
 }
 
 // Turn file rows into clean expenses and incomes using the chosen columns.
-// map = { date, amount, merchant, item, group } (header names).
+// map = { date, amount, merchant, item, group, type, note } (header names;
+// "" when not chosen).
 function readImportRows(records, map, expensesNegative) {
   const expenses = [];
   const incomes = [];
@@ -40,8 +70,7 @@ function readImportRows(records, map, expensesNegative) {
     const date = parseDate(r[map.date] || "");
     const amount = parseAmount(r[map.amount] || "");
     if (!date || amount === null || amount === 0) { invalid++; return; }
-    const isExpense = expensesNegative ? amount < 0 : amount > 0;
-    if (!isExpense) {
+    if (rowIsIncome(r, map, amount, expensesNegative)) {
       // Money coming in, e.g. a paycheck
       incomes.push({
         date,
@@ -52,10 +81,14 @@ function readImportRows(records, map, expensesNegative) {
     }
     expenses.push({
       date,
-      amount: Math.abs(amount),
+      // Spending is positive. A row with the opposite sign that is still an
+      // expense (only possible with a Type column) is a refund: negative,
+      // so it lowers what was spent.
+      amount: expensesNegative ? -amount : amount,
       merchant: String(r[map.merchant] || "").trim(),
       itemName: String(r[map.item] || "").trim(),
       groupName: String(r[map.group] || "").trim(),
+      note: String(r[map.note] || "").trim(),
     });
   });
   return { expenses, incomes, invalid };
@@ -127,7 +160,7 @@ function applyImport(data, expenses, incomes, makeId) {
     const itemId = e.itemName ? findOrCreateItem(month, e.itemName, e.groupName) : null;
     data.transactions.push({
       id: makeId(), type: "expense", date: e.date, amount: e.amount,
-      merchant: e.merchant, itemId, note: "",
+      merchant: e.merchant, itemId, note: e.note || "",
     });
     // Imported month: plan = what was actually spent
     if (month.importedFrom && itemId) {

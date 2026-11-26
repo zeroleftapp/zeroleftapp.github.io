@@ -1,0 +1,9 @@
+Group,Item,Type,Date,Merchant,Account,Amount,Note
+Income,Paycheck 1,Income,08/01/2026,Acme Corp,Checking,"2,400.00",
+Income,Paycheck 2,Income,08/15/2026,Acme Corp,Checking,"2,400.00",
+Food,Groceries,Expense,08/02/2026,Kroger,Checking,-87.45,weekly shop
+Food,Groceries,Expense,08/16/2026,Kroger,Checking,-64.10,
+Food,Restaurants,Expense,08/09/2026,"Olive Garden, Main St",Visa,-52.30,birthday
+Transportation,Gas,Expense,08/05/2026,Shell,Visa,-41.20,
+Housing,Rent,Expense,08/01/2026,Oak Apartments,Checking,"-1,250.00",
+Food,Groceries,Expense,08/20/2026,Kroger,Checking,12.99,refund

@@ -81,6 +81,8 @@ const mapSelects = {
   merchant: document.getElementById("map-merchant"),
   item: document.getElementById("map-item"),
   group: document.getElementById("map-group"),
+  type: document.getElementById("map-type"),
+  note: document.getElementById("map-note"),
 };
 const signSelect = document.getElementById("map-sign");
 
@@ -103,10 +105,12 @@ importFile.addEventListener("change", async () => {
   importRecords = [];
   importHeaders = [];
   const names = [];
+  const summaryFiles = []; // EveryDollar budget summaries (no transactions)
   for (const file of files) {
     const rows = parseCSV(await file.text());
     if (rows.length < 2) continue; // no data rows
     const headers = rows[0].map((h) => h.trim());
+    if (isBudgetSummaryFile(headers)) { summaryFiles.push(file.name); continue; }
     headers.forEach((h) => { if (h && !importHeaders.includes(h)) importHeaders.push(h); });
     rows.slice(1).forEach((cells) => {
       const record = {};
@@ -116,8 +120,15 @@ importFile.addEventListener("change", async () => {
     names.push(file.name);
   }
 
+  const summaryNote = summaryFiles.length
+    ? " Skipped " + summaryFiles.length + " budget summary file" + (summaryFiles.length > 1 ? "s" : "") +
+      " (Planned / Spent / Remaining, no transactions): " + summaryFiles.join(", ") + "."
+    : "";
+
   if (!importRecords.length) {
-    showImportResult("No rows found in the chosen file(s).", true);
+    showImportResult(summaryFiles.length
+      ? "These look like EveryDollar budget summaries (Planned / Spent / Remaining), not transactions. In EveryDollar's \"Download as CSV\", pick the option that includes your transactions." + summaryNote
+      : "No rows found in the chosen file(s).", true);
     importStep.hidden = true;
     return;
   }
@@ -130,11 +141,11 @@ importFile.addEventListener("change", async () => {
     importHeaders.forEach((h) => select.append(new Option(h, h)));
     select.value = guess[field];
   });
-  signSelect.value = looksNegative(importRecords, guess.amount) ? "negative" : "positive";
+  signSelect.value = looksNegative(importRecords, guess) ? "negative" : "positive";
 
   document.getElementById("import-files").textContent =
     importRecords.length + " rows from " + names.length + " file" + (names.length > 1 ? "s" : "") +
-    ": " + names.join(", ");
+    ": " + names.join(", ") + "." + summaryNote;
   importResult.hidden = true;
   importStep.hidden = false;
   updateImportPreview();
@@ -173,6 +184,11 @@ function updateImportPreview() {
     runBtn.disabled = true;
     return;
   }
+  // With a Type column, income vs expense comes from it, not the amount's sign
+  signSelect.disabled = !!map.type;
+  document.getElementById("map-sign-label").title = map.type
+    ? "Not needed: the Type column tells income from expenses." : "";
+
   const result = readImportRows(importRecords, map, signSelect.value === "negative");
   let text = result.expenses.length + " expenses";
   if (result.incomes.length) text += " and " + result.incomes.length + " income rows";
@@ -187,11 +203,11 @@ function updateImportPreview() {
 
 Object.values(mapSelects).forEach((s) => s.addEventListener("change", updateImportPreview));
 signSelect.addEventListener("change", updateImportPreview);
-// When the amount column changes, guess the sign again
-mapSelects.amount.addEventListener("change", () => {
-  signSelect.value = looksNegative(importRecords, mapSelects.amount.value) ? "negative" : "positive";
+// When the amount, type or group column changes, guess the sign again
+[mapSelects.amount, mapSelects.type, mapSelects.group].forEach((s) => s.addEventListener("change", () => {
+  signSelect.value = looksNegative(importRecords, currentMap()) ? "negative" : "positive";
   updateImportPreview();
-});
+}));
 
 document.getElementById("import-cancel").addEventListener("click", () => {
   importStep.hidden = true;

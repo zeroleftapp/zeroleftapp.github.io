@@ -61,8 +61,8 @@ function runTests() {
   });
   const map = guessColumns(headers);
   check("import guesses columns", map,
-    { date: "Date", amount: "Amount", merchant: "Merchant", item: "Budget Item", group: "Budget Group" });
-  check("import detects negative expenses", looksNegative(records, map.amount), true);
+    { date: "Date", amount: "Amount", merchant: "Merchant", item: "Budget Item", group: "Budget Group", type: "", note: "" });
+  check("import detects negative expenses", looksNegative(records, map), true);
   const read = readImportRows(records, map, true);
   check("import amounts", read.expenses.map((e) => e.amount), [104510, 2050, 123456]);
   check("import income", read.incomes.map((i) => i.amount), [240000]);
@@ -75,6 +75,42 @@ function runTests() {
   check("import plan = spent", oct.groups.map((g) => [g.name, g.items[0].name, g.items[0].planned]),
     [["Food", "Groceries", 106560], ["Transportation", "Gas", 123456]]);
   check("import income planned", oct.incomes.map((i) => i.planned), [240000]);
+
+  // --- EveryDollar's (likely) real export format ---
+  // Group, Item, Type, Date, Merchant, Account, Amount, Note; MM/DD/YYYY;
+  // spending negative; a refund is a positive "Expense" row.
+  const edCsv =
+    "Group,Item,Type,Date,Merchant,Account,Amount,Note\n" +
+    'Income,Paycheck 1,Income,08/01/2026,Acme Corp,Checking,"2,400.00",\n' +
+    "Food,Groceries,Expense,08/02/2026,Kroger,Checking,-87.45,weekly shop\n" +
+    'Housing,Rent,Expense,08/01/2026,Oak Apartments,Checking,"-1,250.00",\n' +
+    "Food,Groceries,Expense,08/20/2026,Kroger,Checking,12.99,refund\n";
+  const edRows = parseCSV(edCsv);
+  const edRecords = edRows.slice(1).map((cells) => {
+    const r = {};
+    edRows[0].forEach((h, i) => { r[h] = cells[i] || ""; });
+    return r;
+  });
+  const edMap = guessColumns(edRows[0]);
+  check("EveryDollar format: columns", edMap,
+    { date: "Date", amount: "Amount", merchant: "Merchant", item: "Item", group: "Group", type: "Type", note: "Note" });
+  const edRead = readImportRows(edRecords, edMap, looksNegative(edRecords, edMap));
+  check("EveryDollar format: expenses (refund negative)",
+    edRead.expenses.map((e) => [e.date, e.itemName, e.amount, e.note]),
+    [["2026-08-02", "Groceries", 8745, "weekly shop"], ["2026-08-01", "Rent", 125000, ""], ["2026-08-20", "Groceries", -1299, "refund"]]);
+  check("EveryDollar format: income", edRead.incomes.map((i) => [i.date, i.amount]), [["2026-08-01", 240000]]);
+
+  // Type column decides even if every amount is positive
+  const posRecords = [
+    { Type: "Income", Date: "08/01/2026", Amount: "100" },
+    { Type: "Expense", Date: "08/02/2026", Amount: "30" },
+  ];
+  const posRead = readImportRows(posRecords, { date: "Date", amount: "Amount", type: "Type" }, false);
+  check("Type column with positive amounts", [posRead.incomes.length, posRead.expenses.map((e) => e.amount)], [1, [3000]]);
+
+  // Budget summary export is recognized (and skipped by the import)
+  check("budget summary detected", isBudgetSummaryFile(["Group", "Item", "Planned", "Spent", "Remaining"]), true);
+  check("transactions not a summary", isBudgetSummaryFile(edRows[0]), false);
 
   return out;
 }
