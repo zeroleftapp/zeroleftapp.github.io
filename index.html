@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1f6feb">
-  <title>Budget</title>
+  <title>Zero Left Budget</title>
+  <meta name="description" content="Zero-based budgeting like EveryDollar, without the subscription. Import your EveryDollar CSV files. No account, works offline, your data stays on your device.">
 
   <!-- PWA: app name, icons and "Add to Home Screen" settings -->
   <link rel="manifest" href="manifest.json">
@@ -12,12 +13,43 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Budget">
+  <meta name="apple-mobile-web-app-title" content="Zero Left">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Welcome screen: shown on the very first visit (no data yet).
+       Main message: bring your EveryDollar budget over. -->
+  <section class="welcome" id="welcome" hidden>
+    <div class="welcome-inner">
+      <div class="brand">
+        <img src="icons/icon-192.png" alt="" width="40" height="40">
+        <span>Zero Left Budget</span>
+      </div>
+
+      <h1>Bring your EveryDollar budget over in a minute</h1>
+      <p class="lead">The same zero-based budget you know, without the subscription. No account, no bank login. Your data stays on your device.</p>
+
+      <button class="btn primary big" id="welcome-import">Import from EveryDollar</button>
+      <p class="welcome-help">Export your transactions from EveryDollar as CSV files (one per month is fine), then choose them all at once. You'll see a preview before anything is imported.</p>
+      <button class="btn big" id="welcome-fresh">Start fresh</button>
+
+      <ul class="why">
+        <li><strong>Feels familiar.</strong> Budget groups, Planned / Spent / Remaining, and "left to budget" down to zero.</li>
+        <li><strong>No subscription, no account.</strong> No sign-up and no bank connection.</li>
+        <li><strong>Your data is yours.</strong> Old months are never locked. Export everything anytime.</li>
+        <li><strong>Works everywhere.</strong> iPhone, Android and computer, even offline.</li>
+      </ul>
+
+      <p class="welcome-footer">
+        <a href="privacy.html">Privacy &amp; terms</a> ·
+        <a href="mailto:zeroleftbudget.app@gmail.com?subject=Zero%20Left%20Budget%20feedback">Send feedback</a>
+        <br>Not affiliated with EveryDollar or Ramsey Solutions.
+      </p>
+    </div>
+  </section>
+
   <!-- Top bar: month name, "left to budget" and the view tabs -->
   <!-- The header box is as wide as the budget column below it -->
   <header class="topbar">
@@ -48,14 +80,14 @@
     <div id="view-budget">
       <!-- iPhone only: tip to add the app to the Home Screen (settings.js) -->
       <div class="tip-banner" id="ios-tip" hidden>
-        <p><strong class="tip-title">Add Budget to your Home Screen</strong>
+        <p><strong class="tip-title">Add Zero Left to your Home Screen</strong>
           Safari can delete website data if you don't open it for a week. On the Home Screen, your budget stays safe.</p>
         <ol>
           <li>Tap the Share button
             <svg class="share-icon" viewBox="0 0 24 24" aria-label="Share" role="img"><path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             in Safari's toolbar.</li>
           <li>Choose <strong>Add to Home Screen</strong>.</li>
-          <li>Open Budget from your Home Screen.</li>
+          <li>Open Zero Left from your Home Screen.</li>
         </ol>
         <p class="tip-move" id="ios-tip-move">The Home Screen app starts empty, because it keeps its own data. To move what you've entered here: download a backup now, then use <strong>Settings → Restore from backup</strong> in the Home Screen app.</p>
         <div class="actions">
@@ -168,6 +200,17 @@
         </div>
 
         <p class="import-result" id="import-result" hidden></p>
+        <button class="btn primary import-go" id="import-go" hidden>See my budget</button>
+      </section>
+
+      <section class="card settings">
+        <h2>About Zero Left Budget</h2>
+        <p>We don't collect any data. Your budget is stored only on this device. The app is provided as is, so keep your own backups.</p>
+        <p class="about-links">
+          <a href="privacy.html">Privacy &amp; terms</a> ·
+          <a href="mailto:zeroleftbudget.app@gmail.com?subject=Zero%20Left%20Budget%20feedback">Send feedback</a>
+        </p>
+        <p class="small-print">Not affiliated with EveryDollar or Ramsey Solutions.</p>
       </section>
 
       <!-- Filled in by pwa.js, handy for checking that a phone got the update -->

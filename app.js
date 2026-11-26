@@ -145,11 +145,9 @@ function closestBudgetMonth(key) {
 // ===== App state =====
 const data = loadData();
 
-// The very first time, start the current month with default groups.
-if (Object.keys(data.months).length === 0) {
-  data.months[currentMonthKey()] = freshMonth();
-  saveData();
-}
+// The very first visit (no data at all) shows the welcome screen.
+// Nothing is created until the user picks "Import" or "Start fresh".
+const isFirstVisit = Object.keys(data.months).length === 0 && data.transactions.length === 0;
 
 let viewMonth = currentMonthKey();    // the month on screen, "YYYY-MM"
 let month = data.months[viewMonth];   // its budget, or undefined if none yet
@@ -586,16 +584,40 @@ document.getElementById("fab").addEventListener("click", () => openExpenseSheet(
 // ===== Tabs =====
 let currentView = "budget"; // "budget", "transactions" or "settings"
 
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    currentView = tab.dataset.view;
-    document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t === tab));
-    ["budget", "transactions", "settings"].forEach((v) => {
-      document.getElementById("view-" + v).hidden = v !== currentView;
-    });
-    updateFab();
-    window.scrollTo(0, 0);
+// Switch to a view (also used by settings.js after an import).
+function showView(view) {
+  currentView = view;
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.view === view));
+  ["budget", "transactions", "settings"].forEach((v) => {
+    document.getElementById("view-" + v).hidden = v !== view;
   });
+  updateFab();
+  window.scrollTo(0, 0);
+}
+
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => showView(tab.dataset.view));
+});
+
+// ===== Welcome screen =====
+function setWelcome(on) {
+  document.getElementById("welcome").hidden = !on;
+  document.body.classList.toggle("welcome-mode", on);
+}
+
+// "Import from EveryDollar": open the file picker right away.
+// settings.js takes over when files are chosen (and closes the welcome).
+document.getElementById("welcome-import").addEventListener("click", () => {
+  document.getElementById("import-file").click();
+});
+
+// "Start fresh": this month with the default groups.
+document.getElementById("welcome-fresh").addEventListener("click", () => {
+  data.months[currentMonthKey()] = freshMonth();
+  saveData();
+  setWelcome(false);
+  showView("budget");
+  goToMonth(currentMonthKey());
 });
 
 // The + button shows when the month has a budget and we're not in Settings.
@@ -669,3 +691,4 @@ document.getElementById("add-group").addEventListener("click", () => {
 });
 
 render();
+setWelcome(isFirstVisit);

@@ -21,7 +21,7 @@ const FIRST_USE_KEY = "budget-app-first-use";
 const SNOOZE_KEY = "budget-app-backup-snoozed";
 
 function downloadBackup() {
-  downloadFile("budget-backup-" + todayString() + ".json",
+  downloadFile("zero-left-backup-" + todayString() + ".json",
     JSON.stringify(data, null, 2), "application/json");
   localStorage.setItem(LAST_BACKUP_KEY, todayString());
   updateBackupInfo();
@@ -68,7 +68,7 @@ document.getElementById("export-csv").addEventListener("click", () => {
     }
     rows.push([t.date, t.merchant, (t.amount / 100).toFixed(2), groupName, itemName, t.type, t.note]);
   });
-  downloadFile("transactions-" + todayString() + ".csv", toCSV(rows), "text/csv");
+  downloadFile("zero-left-transactions-" + todayString() + ".csv", toCSV(rows), "text/csv");
 });
 
 // ----- (3) EveryDollar import -----
@@ -94,6 +94,11 @@ importFile.addEventListener("change", async () => {
   const files = [...importFile.files];
   importFile.value = "";
   if (!files.length) return;
+
+  // Coming from the welcome screen: continue in Settings, where the import lives
+  setWelcome(false);
+  showView("settings");
+  importGo.hidden = true;
 
   importRecords = [];
   importHeaders = [];
@@ -133,6 +138,7 @@ importFile.addEventListener("change", async () => {
   importResult.hidden = true;
   importStep.hidden = false;
   updateImportPreview();
+  importStep.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
 function currentMap() {
@@ -227,6 +233,16 @@ document.getElementById("import-run").addEventListener("click", () => {
   if (invalid) skipped.push(invalid + " unreadable");
   if (skipped.length) parts.push("Skipped: " + skipped.join(", ") + ".");
   showImportResult(parts.join(" "), false);
+  importGo.hidden = !(stats.added || stats.incomesAdded);
+});
+
+// "See my budget" after an import: go to this month. If it has no budget
+// yet, the Budget view offers to copy the plan from the imported months.
+const importGo = document.getElementById("import-go");
+importGo.addEventListener("click", () => {
+  importGo.hidden = true;
+  showView("budget");
+  goToMonth(currentMonthKey());
 });
 
 function showImportResult(text, isError) {

@@ -24,6 +24,7 @@ const FILES = [
   "app.js",
   "settings.js",
   "pwa.js",
+  "privacy.html",
   "manifest.json",
   "icons/icon-192.png",
   "icons/icon-512.png",
