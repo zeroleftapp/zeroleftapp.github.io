@@ -110,6 +110,7 @@ function runTests() {
 
   // Budget summary export is recognized (and skipped by the import)
   check("budget summary detected", isBudgetSummaryFile(["Group", "Item", "Planned", "Spent", "Remaining"]), true);
+  check("summary with only Planned/Spent", isBudgetSummaryFile(["Group", "Item", "Planned", "Spent"]), true);
   check("transactions not a summary", isBudgetSummaryFile(edRows[0]), false);
 
   return out;

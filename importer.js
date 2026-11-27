@@ -30,7 +30,9 @@ function guessColumns(headers) {
 // import skips it and says so.
 function isBudgetSummaryFile(headers) {
   const h = headers.map((x) => x.trim().toLowerCase());
-  return h.includes("planned") && h.includes("remaining") && !h.some((x) => x.includes("date"));
+  // Any of Planned / Spent / Remaining and no date column = a summary
+  const budgetCols = ["planned", "spent", "remaining"].some((c) => h.includes(c));
+  return budgetCols && !h.some((x) => x.includes("date"));
 }
 
 // Is this row income? With a Type column ("Income" / "Expense") or an

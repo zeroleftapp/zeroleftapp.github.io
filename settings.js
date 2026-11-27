@@ -127,7 +127,7 @@ importFile.addEventListener("change", async () => {
 
   if (!importRecords.length) {
     showImportResult(summaryFiles.length
-      ? "These look like EveryDollar budget summaries (Planned / Spent / Remaining), not transactions. In EveryDollar's \"Download as CSV\", pick the option that includes your transactions." + summaryNote
+      ? "These look like EveryDollar budget summaries (Planned / Spent / Remaining), not transactions. Download the month again and pick the other option in EveryDollar's \"Download as CSV\" (most likely \"This month's budget\")." + summaryNote
       : "No rows found in the chosen file(s).", true);
     importStep.hidden = true;
     return;
