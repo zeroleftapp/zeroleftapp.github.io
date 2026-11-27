@@ -21,5 +21,7 @@ Bank and other-app files (for "Import from another app or bank"):
   ISO dates.
 - `bank-with-summary-lines.csv`: summary lines above the real header row,
   a "Beginning balance" row without an amount, and a Running Bal. column.
+- `bank-12-rows.csv`: 12 rows (more than the 5 shown at first), for
+  trying "Show all". Includes a credit card payment to uncheck.
 - `bank-no-header-row.csv`: no header row at all; columns are guessed
   from their contents.
