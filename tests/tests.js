@@ -113,5 +113,61 @@ function runTests() {
   check("summary with only Planned/Spent", isBudgetSummaryFile(["Group", "Item", "Planned", "Spent"]), true);
   check("transactions not a summary", isBudgetSummaryFile(edRows[0]), false);
 
+  // --- Bank / other app files (no EveryDollar detection) ---
+  function bank(csvText) {
+    const t = tableFromRows(parseCSV(csvText));
+    const m = guessBankColumns(t.headers, t.records);
+    const r = readImportRows(t.records, m, looksNegative(t.records, m));
+    return { t, m, r };
+  }
+  // One Amount column, spending negative (Chase style)
+  const b1 = bank(
+    "Transaction Date,Post Date,Description,Category,Type,Amount,Memo\n" +
+    "11/02/2026,11/03/2026,KROGER #412,Groceries,Sale,-87.45,\n" +
+    "11/03/2026,11/04/2026,SHELL OIL 5741,Gas,Sale,-41.20,\n" +
+    "11/08/2026,11/09/2026,NETFLIX.COM,Entertainment,Sale,-15.49,monthly\n" +
+    '11/05/2026,11/05/2026,PAYROLL ACME CORP,,Deposit,"2,400.00",\n' +
+    "11/12/2026,11/13/2026,KROGER #412,Groceries,Return,12.99,refund\n");
+  check("bank: guesses", [b1.m.date, b1.m.amount, b1.m.merchant, b1.m.item, b1.m.type, b1.m.note],
+    ["Transaction Date", "Amount", "Description", "", "", "Memo"]);
+  check("bank: one amount column", [b1.r.expenses.map((e) => [e.merchant, e.amount]), b1.r.incomes.map((i) => i.amount)],
+    [[["KROGER #412", 8745], ["SHELL OIL 5741", 4120], ["NETFLIX.COM", 1549]], [240000, 1299]]);
+  // Note: without a Type column a positive "Return" counts as money in.
+
+  // Separate Debit / Credit columns (Capital One style)
+  const b2 = bank(
+    "Transaction Date,Posted Date,Card No.,Description,Category,Debit,Credit\n" +
+    "2026-11-02,2026-11-03,1234,TARGET 00012,Merchandise,54.10,\n" +
+    "2026-11-10,2026-11-10,1234,ONLINE PAYMENT,Payment/Credit,,500.00\n");
+  check("bank: debit/credit guesses", [b2.m.amount, b2.m.moneyOut, b2.m.moneyIn], ["", "Debit", "Credit"]);
+  check("bank: debit/credit amounts", [b2.r.expenses.map((e) => e.amount), b2.r.incomes.map((i) => i.amount)], [[5410], [50000]]);
+
+  // Summary lines above the real header (Bank of America style)
+  const b3 = bank(
+    "Description,,Summary Amt.\n" +
+    'Beginning balance as of 11/01/2026,,"1,000.00"\n\n' +
+    "Date,Description,Amount,Running Bal.\n" +
+    '11/01/2026,Beginning balance as of 11/01/2026,,"1,000.00"\n' +
+    '11/02/2026,"WALMART, ANYTOWN",-63.12,936.88\n');
+  check("bank: header after summary lines", b3.t.headers, ["Date", "Description", "Amount", "Running Bal."]);
+  check("bank: balance row skipped", [b3.r.expenses.map((e) => e.amount), b3.r.invalid], [[6312], 1]);
+
+  // No header row at all (Wells Fargo style)
+  const b4 = bank(
+    '"11/02/2026","-87.45","*","","KROGER #412"\n' +
+    '"11/05/2026","2400.00","*","","PAYROLL ACME CORP"\n' +
+    '"11/09/2026","-29.99","*","","AMAZON MKTPLACE"\n');
+  check("bank: no header row", [b4.t.headers.length, b4.t.records.length], [5, 3]);
+  check("bank: guessed from contents", [b4.m.date, b4.m.amount, b4.m.merchant], ["Column 1", "Column 2", "Column 5"]);
+  check("bank: no-header amounts", [b4.r.expenses.map((e) => e.amount), b4.r.incomes.map((i) => i.amount)], [[8745, 2999], [240000]]);
+
+  // Imported bank months are marked "CSV", not "EveryDollar"
+  const bankData = { months: {}, transactions: [] };
+  applyImport(bankData, b1.r.expenses, b1.r.incomes, () => "b" + (++n), "CSV");
+  check("bank: month source", bankData.months["2026-11"].importedFrom, "CSV");
+  check("sign tie counts as negative", looksNegative([{ A: "-63.12" }, { A: "2,400.00" }], { amount: "A" }), true);
+  check("date-like cells", ["11/02/2026", "2026-11-02", "Nov 2, 2026", "-45.10", "12", "*"].map(looksLikeDate),
+    [true, true, true, false, false, false]);
+
   return out;
 }

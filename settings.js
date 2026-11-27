@@ -1,4 +1,4 @@
-// ===== Settings view: backup, CSV export, EveryDollar import =====
+// ===== Settings view: backup, CSV export, CSV import =====
 // Uses data, saveData, refreshAfterDataChange etc. from app.js.
 
 // Let the browser download a file made in the page.
@@ -71,13 +71,20 @@ document.getElementById("export-csv").addEventListener("click", () => {
   downloadFile("zero-left-transactions-" + todayString() + ".csv", toCSV(rows), "text/csv");
 });
 
-// ----- (3) EveryDollar import -----
+// ----- (3) Import: EveryDollar, or a bank / another app -----
+// Two ways in, same steps after:
+// - "EveryDollar": its known columns (Group, Item, Type...) are recognized,
+//   and budget summary files are skipped with an explanation.
+// - "CSV" (bank or another app): only basic guesses; the user picks the
+//   columns, helped by a plain-language example of the first rows.
 const importFile = document.getElementById("import-file");
 const importStep = document.getElementById("import-step");
 const importResult = document.getElementById("import-result");
 const mapSelects = {
   date: document.getElementById("map-date"),
   amount: document.getElementById("map-amount"),
+  moneyOut: document.getElementById("map-moneyOut"),
+  moneyIn: document.getElementById("map-moneyIn"),
   merchant: document.getElementById("map-merchant"),
   item: document.getElementById("map-item"),
   group: document.getElementById("map-group"),
@@ -85,17 +92,33 @@ const mapSelects = {
   note: document.getElementById("map-note"),
 };
 const signSelect = document.getElementById("map-sign");
+const amountMode = document.getElementById("map-amount-mode");
 
+// What each chosen column is used for (shown above the preview table)
+const FIELD_NAMES = {
+  date: "Date", amount: "Amount", moneyOut: "Money out", moneyIn: "Money in",
+  merchant: "Merchant", item: "Budget item", group: "Budget group",
+  type: "Income or expense", note: "Note",
+};
+
+let importSource = "EveryDollar"; // or "CSV"
 let importRecords = []; // every row from every file, as { header: value }
 let importHeaders = []; // all column names seen in the files
 
-document.getElementById("import-choose").addEventListener("click", () => importFile.click());
+// Open the file picker for one kind of import (also used by the welcome screen).
+function chooseImportFiles(source) {
+  importSource = source;
+  importFile.click();
+}
+document.getElementById("import-choose").addEventListener("click", () => chooseImportFiles("EveryDollar"));
+document.getElementById("import-choose-other").addEventListener("click", () => chooseImportFiles("CSV"));
 
-// Read the chosen files and show the column mapping step.
+// Read the chosen files and show the column choice step.
 importFile.addEventListener("change", async () => {
   const files = [...importFile.files];
   importFile.value = "";
   if (!files.length) return;
+  const everyDollar = importSource === "EveryDollar";
 
   // Coming from the welcome screen: continue in Settings, where the import lives
   setWelcome(false);
@@ -107,16 +130,11 @@ importFile.addEventListener("change", async () => {
   const names = [];
   const summaryFiles = []; // EveryDollar budget summaries (no transactions)
   for (const file of files) {
-    const rows = parseCSV(await file.text());
-    if (rows.length < 2) continue; // no data rows
-    const headers = rows[0].map((h) => h.trim());
-    if (isBudgetSummaryFile(headers)) { summaryFiles.push(file.name); continue; }
-    headers.forEach((h) => { if (h && !importHeaders.includes(h)) importHeaders.push(h); });
-    rows.slice(1).forEach((cells) => {
-      const record = {};
-      headers.forEach((h, i) => { record[h] = cells[i] || ""; });
-      importRecords.push(record);
-    });
+    const table = tableFromRows(parseCSV(await file.text()));
+    if (!table.records.length) continue; // no data rows
+    if (everyDollar && isBudgetSummaryFile(table.headers)) { summaryFiles.push(file.name); continue; }
+    table.headers.forEach((h) => { if (!importHeaders.includes(h)) importHeaders.push(h); });
+    importRecords.push(...table.records);
     names.push(file.name);
   }
 
@@ -134,15 +152,21 @@ importFile.addEventListener("change", async () => {
   }
 
   // Fill the column dropdowns and pre-select good guesses
-  const guess = guessColumns(importHeaders);
+  const guess = everyDollar
+    ? Object.assign({ moneyOut: "", moneyIn: "" }, guessColumns(importHeaders))
+    : guessBankColumns(importHeaders, importRecords);
   Object.entries(mapSelects).forEach(([field, select]) => {
     select.innerHTML = "";
     select.append(new Option("— none —", ""));
     importHeaders.forEach((h) => select.append(new Option(h, h)));
     select.value = guess[field];
   });
+  amountMode.value = !guess.amount && (guess.moneyOut || guess.moneyIn) ? "two" : "one";
   signSelect.value = looksNegative(importRecords, guess) ? "negative" : "positive";
 
+  document.getElementById("import-hint").textContent = everyDollar
+    ? "We recognized your EveryDollar columns. Check the example below, and change a column if something looks wrong."
+    : "Tell us which column in your file is which. We've filled in our best guesses: check them against the example below.";
   document.getElementById("import-files").textContent =
     importRecords.length + " rows from " + names.length + " file" + (names.length > 1 ? "s" : "") +
     ": " + names.join(", ") + "." + summaryNote;
@@ -152,16 +176,40 @@ importFile.addEventListener("change", async () => {
   importStep.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
+// The chosen columns. Only the amount column(s) of the chosen mode count.
 function currentMap() {
   const map = {};
   Object.entries(mapSelects).forEach(([field, select]) => { map[field] = select.value; });
+  if (amountMode.value === "two") map.amount = "";
+  else { map.moneyOut = ""; map.moneyIn = ""; }
   return map;
 }
 
-// Preview table (first rows, chosen columns highlighted) and a live summary.
+// One row in plain words, e.g. "Nov 2 · KROGER #412 · spent $87.45 · Groceries"
+function describeRow(record, map) {
+  const read = readImportRows([record], map, signSelect.value === "negative");
+  const e = read.expenses[0], inc = read.incomes[0];
+  if (e) {
+    return [formatDate(e.date), e.merchant || "(no merchant)",
+      (e.amount < 0 ? "refund " : "spent ") + formatMoney(Math.abs(e.amount)),
+      e.itemName || "Uncategorized"].join(" · ");
+  }
+  if (inc) return [formatDate(inc.date), inc.name, "money in " + formatMoney(inc.amount)].join(" · ");
+  return "Skipped: no valid date or amount";
+}
+
+// Example rows, preview table (with what each column is used for) and summary.
 function updateImportPreview() {
   const map = currentMap();
-  const mapped = Object.values(map).filter(Boolean);
+  const two = amountMode.value === "two";
+  document.getElementById("map-amount-label").hidden = two;
+  document.getElementById("map-out-label").hidden = !two;
+  document.getElementById("map-in-label").hidden = !two;
+  // With two columns the sign is already clear
+  document.getElementById("map-sign-label").hidden = two;
+
+  const usedFor = {};
+  Object.entries(map).forEach(([field, h]) => { if (h) usedFor[h] = FIELD_NAMES[field]; });
 
   const table = document.getElementById("import-table");
   table.innerHTML = "";
@@ -169,7 +217,13 @@ function updateImportPreview() {
   importHeaders.forEach((h) => {
     const th = document.createElement("th");
     th.textContent = h;
-    if (mapped.includes(h)) th.className = "mapped";
+    if (usedFor[h]) {
+      th.className = "mapped";
+      const tag = document.createElement("span");
+      tag.className = "used-for";
+      tag.textContent = "→ " + usedFor[h];
+      th.append(tag);
+    }
     head.append(th);
   });
   importRecords.slice(0, 5).forEach((r) => {
@@ -179,22 +233,30 @@ function updateImportPreview() {
 
   const summary = document.getElementById("import-summary");
   const runBtn = document.getElementById("import-run");
-  if (!map.date || !map.amount) {
-    summary.textContent = "Choose at least the Date and Amount columns.";
+  const sample = document.getElementById("import-sample");
+  sample.innerHTML = "";
+  const hasAmount = two ? map.moneyOut || map.moneyIn : map.amount;
+  if (!map.date || !hasAmount) {
+    summary.textContent = two
+      ? "Choose the Date column, and at least one of Money out / Money in."
+      : "Choose the Date and Amount columns.";
     runBtn.disabled = true;
+    runBtn.textContent = "Import";
     return;
   }
-  // With a Type column, income vs expense comes from it, not the amount's sign
-  signSelect.disabled = !!map.type;
-  document.getElementById("map-sign-label").title = map.type
-    ? "Not needed: the Type column tells income from expenses." : "";
+
+  importRecords.slice(0, 3).forEach((r) => {
+    const li = document.createElement("li");
+    li.textContent = describeRow(r, map);
+    sample.append(li);
+  });
 
   const result = readImportRows(importRecords, map, signSelect.value === "negative");
   let text = result.expenses.length + " expenses";
-  if (result.incomes.length) text += " and " + result.incomes.length + " income rows";
+  if (result.incomes.length) text += " and " + result.incomes.length + " money-in rows (paychecks, deposits)";
   text += " ready to import.";
   if (result.invalid) text += " " + result.invalid + " rows without a valid date or amount will be skipped.";
-  if (!map.item) text += " No budget item column chosen: expenses will be uncategorized.";
+  if (!map.item) text += " No budget item column chosen: expenses come in as Uncategorized, and you can pick an item for each one later in Transactions.";
   summary.textContent = text;
   const count = result.expenses.length + result.incomes.length;
   runBtn.disabled = count === 0;
@@ -203,6 +265,7 @@ function updateImportPreview() {
 
 Object.values(mapSelects).forEach((s) => s.addEventListener("change", updateImportPreview));
 signSelect.addEventListener("change", updateImportPreview);
+amountMode.addEventListener("change", updateImportPreview);
 // When the amount, type or group column changes, guess the sign again
 [mapSelects.amount, mapSelects.type, mapSelects.group].forEach((s) => s.addEventListener("change", () => {
   signSelect.value = looksNegative(importRecords, currentMap()) ? "negative" : "positive";
@@ -217,7 +280,12 @@ document.getElementById("import-cancel").addEventListener("click", () => {
 document.getElementById("import-run").addEventListener("click", () => {
   const { expenses, incomes, invalid } =
     readImportRows(importRecords, currentMap(), signSelect.value === "negative");
-  const stats = applyImport(data, expenses, incomes, newId);
+  const stats = applyImport(data, expenses, incomes, newId, importSource);
+  // New months without any budget items (e.g. a bank file without
+  // categories) get the usual starter groups, ready to fill in.
+  stats.monthsCreated.forEach((key) => {
+    if (!data.months[key].groups.length) data.months[key].groups = freshMonth().groups;
+  });
   saveData();
   refreshAfterDataChange();
   importStep.hidden = true;

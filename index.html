@@ -33,6 +33,8 @@
 
       <button class="btn primary big" id="welcome-import">Import from EveryDollar</button>
       <p class="welcome-help">On everydollar.com, open each month, scroll to the bottom and click <strong>Download as CSV</strong>. Your transactions are most likely under <strong>This month's budget</strong> (EveryDollar's names look swapped). If you pick the wrong one, we'll tell you. Then choose all the files here at once. You'll see a preview before anything is imported.</p>
+      <!-- Same import, but without EveryDollar's format: the user picks the columns -->
+      <button class="link-btn" id="welcome-import-other">Import from another app or bank (CSV)</button>
       <button class="btn big" id="welcome-fresh">Start fresh</button>
 
       <ul class="why">
@@ -117,7 +119,7 @@
       <div id="budget-content">
       <!-- Small note on months that an import created -->
       <p class="import-note" id="import-note" hidden>
-        <strong>Imported from EveryDollar</strong>
+        <strong id="import-note-title">Imported from EveryDollar</strong>
         This plan was built from your imported data: income from your deposits, planned amounts from what you spent. You can edit everything.
       </p>
 
@@ -170,29 +172,56 @@
         <h2>Import from EveryDollar</h2>
         <p>On <strong>everydollar.com</strong> (the website, not the phone app), open a month, scroll to the bottom of the budget and click <strong>Download as CSV</strong>. Your transactions are most likely under <strong>This month's budget</strong>, even though the other option is called "Transactions tracked to this month's budget" (EveryDollar's names look swapped). If you pick the wrong one, we'll tell you. Repeat for each month, then choose all the files here at once. Exporting requires EveryDollar Premium.</p>
         <button class="btn primary" id="import-choose">Choose CSV files…</button>
+        <button class="link-btn" id="import-choose-other">From a bank or another app? Choose a CSV file</button>
         <input type="file" id="import-file" accept=".csv,text/csv" multiple hidden>
 
         <!-- Shown after files are picked: column mapping + preview -->
         <div id="import-step" hidden>
           <p class="import-files" id="import-files"></p>
 
-          <p class="import-hint">Tell us which column is which:</p>
-          <div class="map-grid">
-            <label>Date <select id="map-date"></select></label>
-            <label>Amount <select id="map-amount"></select></label>
-            <label>Merchant <select id="map-merchant"></select></label>
-            <label>Budget item <select id="map-item"></select></label>
-            <label>Budget group <select id="map-group"></select></label>
-            <label>Type (income / expense) <select id="map-type"></select></label>
-            <label>Note <select id="map-note"></select></label>
-            <label id="map-sign-label">Expenses are
-              <select id="map-sign">
-                <option value="positive">positive amounts</option>
-                <option value="negative">negative amounts</option>
-              </select>
-            </label>
+          <p class="import-hint" id="import-hint">Tell us which column in your file is which. We've filled in our best guesses: check them against the example below.</p>
+
+          <!-- Column choices. "Needed" first, the rest is optional. -->
+          <div class="map-section">
+            <h3>Needed</h3>
+            <div class="map-grid">
+              <label>Date <small>When you paid</small> <select id="map-date"></select></label>
+              <label>Amounts are in
+                <small>Most files have one Amount column</small>
+                <select id="map-amount-mode">
+                  <option value="one">One column</option>
+                  <option value="two">Two columns: money out and money in</option>
+                </select>
+              </label>
+              <label id="map-amount-label">Amount <small>How much</small> <select id="map-amount"></select></label>
+              <label id="map-sign-label">Spending shows as
+                <small>Look at a purchase in your file</small>
+                <select id="map-sign">
+                  <option value="negative">minus numbers, like -45.00</option>
+                  <option value="positive">plain numbers, like 45.00</option>
+                </select>
+              </label>
+              <label id="map-out-label" hidden>Money out <small>Spending, often "Debit"</small> <select id="map-moneyOut"></select></label>
+              <label id="map-in-label" hidden>Money in <small>Paychecks, often "Credit"</small> <select id="map-moneyIn"></select></label>
+            </div>
           </div>
 
+          <div class="map-section">
+            <h3>Optional</h3>
+            <div class="map-grid">
+              <label>Merchant <small>Who you paid, often "Description"</small> <select id="map-merchant"></select></label>
+              <label>Budget item <small>A category, like Groceries</small> <select id="map-item"></select></label>
+              <label>Budget group <small>A group of items, like Food</small> <select id="map-group"></select></label>
+              <label>Income or expense <small>A column that says which</small> <select id="map-type"></select></label>
+              <label>Note <small>Memo or note</small> <select id="map-note"></select></label>
+            </div>
+          </div>
+
+          <!-- The first rows the way they will be imported -->
+          <h3 class="sample-title">Example: your first rows</h3>
+          <ul class="import-sample" id="import-sample"></ul>
+
+          <p class="import-hint">Your file:</p>
           <div class="table-wrap"><table id="import-table"></table></div>
 
           <p class="import-summary" id="import-summary"></p>

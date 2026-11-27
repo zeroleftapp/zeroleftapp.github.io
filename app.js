@@ -673,11 +673,10 @@ function setWelcome(on) {
   document.body.classList.toggle("welcome-mode", on);
 }
 
-// "Import from EveryDollar": open the file picker right away.
-// settings.js takes over when files are chosen (and closes the welcome).
-document.getElementById("welcome-import").addEventListener("click", () => {
-  document.getElementById("import-file").click();
-});
+// "Import from EveryDollar" / "...another app or bank": open the file
+// picker right away. settings.js takes over when files are chosen.
+document.getElementById("welcome-import").addEventListener("click", () => chooseImportFiles("EveryDollar"));
+document.getElementById("welcome-import-other").addEventListener("click", () => chooseImportFiles("CSV"));
 
 // "Start fresh": this month with the default groups.
 document.getElementById("welcome-fresh").addEventListener("click", () => {
@@ -727,6 +726,8 @@ function render() {
   updateFab();
 
   document.getElementById("import-note").hidden = !(month && month.importedFrom);
+  document.getElementById("import-note-title").textContent = month && month.importedFrom === "CSV"
+    ? "Imported from a CSV file" : "Imported from EveryDollar";
 
   if (month) {
     renderIncomes();

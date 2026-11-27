@@ -12,3 +12,14 @@ Sample files for trying the EveryDollar import. Not real data.
 - `1a2b3c4d-08-2026-EveryDollar-BudgetItems.csv`: EveryDollar's budget
   summary export (Planned / Spent / Remaining). The import should skip it
   and explain why.
+
+Bank and other-app files (for "Import from another app or bank"):
+
+- `bank-one-amount-column.csv`: one Amount column, spending negative,
+  extra Post Date / Type / Category columns, a refund.
+- `bank-debit-credit-columns.csv`: separate Debit and Credit columns,
+  ISO dates.
+- `bank-with-summary-lines.csv`: summary lines above the real header row,
+  a "Beginning balance" row without an amount, and a Running Bal. column.
+- `bank-no-header-row.csv`: no header row at all; columns are guessed
+  from their contents.

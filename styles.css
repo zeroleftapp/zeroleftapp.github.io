@@ -395,7 +395,43 @@ input:focus { outline: none; border-color: var(--blue); background: #fff; }
   grid-template-columns: 1fr 1fr;
   gap: 8px 12px;
 }
-.map-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.map-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; font-weight: 600; color: var(--text); }
+/* Plain-language help under each column name */
+.map-grid label small { font-size: 12px; font-weight: 400; color: var(--muted); margin-bottom: 2px; }
+.map-section { margin-top: 12px; }
+.map-section h3, .sample-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.sample-title { margin-top: 16px; }
+/* "Nov 2 · KROGER · spent $87.45 · Groceries": the first rows in plain words */
+.import-sample {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  list-style: none;
+  border-radius: 8px;
+  background: #e8f0fe;
+  font-size: 14px;
+}
+.import-sample li { padding: 3px 0; }
+.import-sample:empty { display: none; }
+/* Smaller text button, e.g. "Import from another app or bank (CSV)" */
+.link-btn {
+  display: block;
+  margin: 0 auto 16px;
+  padding: 8px;
+  border: 0;
+  background: none;
+  color: var(--blue);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.settings .link-btn { margin: 8px 0 0; padding: 4px 0; font-size: 14px; }
 select {
   font: inherit;
   font-size: 16px;
@@ -418,6 +454,7 @@ select {
 .table-wrap th, .table-wrap td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; }
 .table-wrap th { background: var(--bg); }
 .table-wrap th.mapped { background: #e3eeff; color: var(--blue); }
+.table-wrap th .used-for { display: block; font-size: 11px; font-weight: 600; }
 
 .import-summary { margin-top: 12px !important; color: var(--text) !important; }
 .import-result {
@@ -429,7 +466,7 @@ select {
 }
 .import-result.error { background: var(--red-bg); color: var(--red) !important; }
 
-/* "Imported from EveryDollar" note at the top of an imported month */
+/* "Imported from EveryDollar / a CSV file" note at the top of an imported month */
 .import-note {
   margin: 0 0 16px;
   padding: 10px 12px;

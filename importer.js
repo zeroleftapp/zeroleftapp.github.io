@@ -1,9 +1,98 @@
-// ===== EveryDollar import logic =====
+// ===== CSV import logic (EveryDollar, banks and other apps) =====
 // Pure functions (no page access): they take data in and give results back.
 // Uses parseDate and parseAmount from csv.js.
 
 function normName(s) {
   return String(s || "").trim().toLowerCase();
+}
+
+// Does this cell look like a date? Stricter than parseDate alone, so
+// numbers like "-45.10" are never mistaken for dates.
+function looksLikeDate(cell) {
+  const c = String(cell || "").trim();
+  return (/^\d{1,4}[\/.-]\d{1,2}[\/.-]\d{2,4}$/.test(c) || /^[a-z]{3,9}\.? \d{1,2},? \d{4}$/i.test(c)) &&
+    !!parseDate(c);
+}
+
+// Turn parsed CSV rows into { headers, records }. Bank files are messy:
+// - some start with summary lines before the real header row
+//   (we use the first row that has a "date" column name),
+// - some have no header row at all (the first row is already data);
+//   then columns are called "Column 1", "Column 2", ...
+function tableFromRows(rows) {
+  const isData = (row) => row.some(looksLikeDate);
+  let start = rows.findIndex((row, i) => i < 15 && !isData(row) && row.some((c) => /date/i.test(c)));
+  if (start === -1) start = 0;
+  let headers, body;
+  if (rows.length && isData(rows[start])) {
+    const width = Math.max(...rows.map((r) => r.length));
+    headers = Array.from({ length: width }, () => "");
+    body = rows.slice(start);
+  } else {
+    headers = (rows[start] || []).map((h) => h.trim());
+    body = rows.slice(start + 1);
+  }
+  headers = headers.map((h, i) => h || "Column " + (i + 1));
+  const records = body.map((cells) => {
+    const r = {};
+    headers.forEach((h, i) => { r[h] = cells[i] || ""; });
+    return r;
+  });
+  return { headers, records };
+}
+
+// Guesses for a bank or another app's file. Only the basics (date,
+// amount, description, note): the user checks and picks the rest.
+// Some banks have separate "Debit" and "Credit" columns instead of one
+// amount: those become moneyOut and moneyIn. Files without header names
+// are guessed from what the cells look like.
+function guessBankColumns(headers, records) {
+  const low = (h) => h.trim().toLowerCase();
+  const find = (test) => headers.find((h) => test(low(h))) || "";
+  const map = {
+    date: find((h) => h.includes("date") && !h.includes("post")) || find((h) => h.includes("date")),
+    amount: find((h) => h.includes("amount") && !h.includes("balance")),
+    moneyOut: find((h) => /debit|withdrawal|money out|paid out/.test(h)),
+    moneyIn: find((h) => /credit|deposit|money in|paid in/.test(h)),
+    merchant: find((h) => /description|payee|merchant|^name$|details/.test(h)),
+    item: "", group: "", type: "",
+    note: find((h) => /note|memo/.test(h)),
+  };
+  if (map.amount) { map.moneyOut = ""; map.moneyIn = ""; }
+
+  // No usable names (e.g. "Column 1"): look at the first rows' contents
+  const sample = records.slice(0, 10);
+  const filled = (h) => sample.filter((r) => String(r[h] || "").trim() !== "");
+  const used = () => Object.values(map);
+  if (!map.date) {
+    map.date = headers.find((h) => filled(h).length && filled(h).every((r) => looksLikeDate(r[h]))) || "";
+  }
+  if (!map.amount && !map.moneyOut && !map.moneyIn) {
+    map.amount = headers.find((h) => !used().includes(h) && filled(h).length &&
+      filled(h).every((r) => parseAmount(r[h]) !== null && /[.,]\d\d$|^-/.test(r[h].trim()))) || "";
+  }
+  if (!map.merchant) {
+    // The column with the most text in it is usually the description
+    let best = "", bestLen = 0;
+    headers.forEach((h) => {
+      if (used().includes(h)) return;
+      const len = filled(h).reduce((sum, r) => sum + (/[a-z]/i.test(r[h]) ? r[h].length : 0), 0);
+      if (len > bestLen) { best = h; bestLen = len; }
+    });
+    map.merchant = best;
+  }
+  return map;
+}
+
+// The amount of one row, from one Amount column or from separate
+// money out / money in columns (out becomes negative, in positive).
+function rowAmount(r, map) {
+  if (map.amount) return parseAmount(r[map.amount] || "");
+  const out = parseAmount(r[map.moneyOut] || "");
+  const inn = parseAmount(r[map.moneyIn] || "");
+  if (out) return -Math.abs(out);
+  if (inn) return Math.abs(inn);
+  return out === 0 || inn === 0 ? 0 : null;
 }
 
 // Guess which column is which from the header names.
@@ -47,30 +136,35 @@ function rowIsIncome(r, map, amount, expensesNegative) {
 }
 
 // Are most expense amounts negative? Then expenses are the negative ones.
+// (Only a first guess: the user sees the result and can change it.)
 // map = { amount, type?, group? }. Rows that the Type column or an
 // "Income" group mark as income are left out of the count.
 function looksNegative(records, map) {
+  if (!map.amount && (map.moneyOut || map.moneyIn)) return true; // see rowAmount
   let neg = 0, pos = 0;
   records.forEach((r) => {
     if (map.type && /income|deposit|credit/.test(normName(r[map.type]))) return;
     if (map.group && normName(r[map.group]) === "income") return;
-    const a = parseAmount(r[map.amount] || "");
+    const a = rowAmount(r, map);
     if (a < 0) neg++;
     else if (a > 0) pos++;
   });
-  return neg > pos;
+  // A tie counts as negative: most bank files show spending as minus
+  return neg > 0 && neg >= pos;
 }
 
 // Turn file rows into clean expenses and incomes using the chosen columns.
 // map = { date, amount, merchant, item, group, type, note } (header names;
-// "" when not chosen).
+// "" when not chosen). Instead of amount there can be moneyOut / moneyIn.
 function readImportRows(records, map, expensesNegative) {
+  // Separate out / in columns: rowAmount makes spending negative
+  if (!map.amount && (map.moneyOut || map.moneyIn)) expensesNegative = true;
   const expenses = [];
   const incomes = [];
   let invalid = 0;
   records.forEach((r) => {
     const date = parseDate(r[map.date] || "");
-    const amount = parseAmount(r[map.amount] || "");
+    const amount = rowAmount(r, map);
     if (!date || amount === null || amount === 0) { invalid++; return; }
     if (rowIsIncome(r, map, amount, expensesNegative)) {
       // Money coming in, e.g. a paycheck
@@ -100,11 +194,12 @@ function readImportRows(records, map, expensesNegative) {
 // - Expenses become transactions. Missing months and budget items are created.
 //   Expenses that already exist (same date, amount and merchant) are skipped,
 //   so importing the same file twice doesn't double everything.
-// - Months created by an import are marked importedFrom: "EveryDollar".
+// - Months created by an import are marked importedFrom: source
+//   ("EveryDollar", or "CSV" for a bank or another app).
 //   Only in those months the plan is built from the data: incomes become
 //   planned income, and each item's planned amount grows by what was spent.
 //   Months the user budgeted themselves keep their plan untouched.
-function applyImport(data, expenses, incomes, makeId) {
+function applyImport(data, expenses, incomes, makeId, source) {
   const stats = {
     added: 0, duplicates: 0, itemsCreated: 0, monthsCreated: [], months: [],
     incomesAdded: 0, incomesSkipped: 0,
@@ -113,7 +208,7 @@ function applyImport(data, expenses, incomes, makeId) {
   // Get a month to put imported rows in, creating (and marking) it if needed.
   function monthFor(monthKey) {
     if (!data.months[monthKey]) {
-      data.months[monthKey] = { incomes: [], groups: [], importedFrom: "EveryDollar" };
+      data.months[monthKey] = { incomes: [], groups: [], importedFrom: source || "EveryDollar" };
       stats.monthsCreated.push(monthKey);
     }
     return data.months[monthKey];

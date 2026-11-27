@@ -1,0 +1,6 @@
+Transaction Date,Post Date,Description,Category,Type,Amount,Memo
+11/02/2026,11/03/2026,KROGER #412,Groceries,Sale,-87.45,
+11/03/2026,11/04/2026,SHELL OIL 5741,Gas,Sale,-41.20,
+11/05/2026,11/05/2026,PAYROLL ACME CORP,,Deposit,"2,400.00",
+11/08/2026,11/09/2026,NETFLIX.COM,Entertainment,Sale,-15.49,monthly
+11/12/2026,11/13/2026,KROGER #412,Groceries,Return,12.99,refund

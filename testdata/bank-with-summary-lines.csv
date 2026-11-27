@@ -1,0 +1,9 @@
+Description,,Summary Amt.
+Beginning balance as of 11/01/2026,,"1,000.00"
+Total credits,,"2,400.00"
+Ending balance as of 11/30/2026,,"3,214.33"
+
+Date,Description,Amount,Running Bal.
+11/01/2026,Beginning balance as of 11/01/2026,,"1,000.00"
+11/02/2026,"WALMART SUPERCENTER, ANYTOWN",-63.12,936.88
+11/15/2026,DIRECT DEPOSIT ACME CORP,"2,400.00","3,336.88"
