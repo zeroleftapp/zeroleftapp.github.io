@@ -104,6 +104,14 @@ const FIELD_NAMES = {
 let importSource = "EveryDollar"; // or "CSV"
 let importRecords = []; // every row from every file, as { header: value }
 let importHeaders = []; // all column names seen in the files
+let leftOut = new Set(); // rows the user unchecked (record objects)
+let showAllRows = false; // "Show all" pressed in the row list
+const SAMPLE_ROWS = 5;
+
+// "1 expense", "2 expenses"
+function plural(n, word) {
+  return n + " " + word + (n === 1 ? "" : "s");
+}
 
 // Open the file picker for one kind of import (also used by the welcome screen).
 function chooseImportFiles(source) {
@@ -127,6 +135,8 @@ importFile.addEventListener("change", async () => {
 
   importRecords = [];
   importHeaders = [];
+  leftOut = new Set();
+  showAllRows = false;
   const names = [];
   const summaryFiles = []; // EveryDollar budget summaries (no transactions)
   for (const file of files) {
@@ -165,10 +175,14 @@ importFile.addEventListener("change", async () => {
   signSelect.value = looksNegative(importRecords, guess) ? "negative" : "positive";
 
   document.getElementById("import-hint").textContent = everyDollar
-    ? "We recognized your EveryDollar columns. Check the example below, and change a column if something looks wrong."
-    : "Tell us which column in your file is which. We've filled in our best guesses: check them against the example below.";
+    ? "We recognized your EveryDollar columns. Check your rows below, and change a column if something looks wrong."
+    : "Tell us which column in your file is which. We've filled in our best guesses: check them against your rows below.";
+  document.querySelector(".sample-hint").textContent = everyDollar
+    ? "Uncheck any row you don't want to import."
+    : "Uncheck any row you don't want to import. Credit card payments aren't income – uncheck them.";
+  setMoreOptions(false);
   document.getElementById("import-files").textContent =
-    importRecords.length + " rows from " + names.length + " file" + (names.length > 1 ? "s" : "") +
+    plural(importRecords.length, "row") + " from " + plural(names.length, "file") +
     ": " + names.join(", ") + "." + summaryNote;
   importResult.hidden = true;
   importStep.hidden = false;
@@ -245,23 +259,71 @@ function updateImportPreview() {
     return;
   }
 
-  importRecords.slice(0, 3).forEach((r) => {
+  // Each row in plain words, with a checkbox to leave it out
+  const shown = showAllRows ? importRecords : importRecords.slice(0, SAMPLE_ROWS);
+  shown.forEach((r) => {
     const li = document.createElement("li");
-    li.textContent = describeRow(r, map);
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    const text = describeRow(r, map);
+    const unreadable = text.startsWith("Skipped");
+    box.checked = !unreadable && !leftOut.has(r);
+    box.disabled = unreadable;
+    box.addEventListener("change", () => {
+      if (box.checked) leftOut.delete(r); else leftOut.add(r);
+      updateImportPreview();
+    });
+    const span = document.createElement("span");
+    span.textContent = text;
+    label.append(box, span);
+    li.append(label);
+    li.classList.toggle("left-out", !box.checked);
     sample.append(li);
   });
+  const allBtn = document.getElementById("sample-all");
+  allBtn.hidden = importRecords.length <= SAMPLE_ROWS;
+  allBtn.textContent = showAllRows ? "Show fewer" : "Show all " + importRecords.length + " rows";
 
-  const result = readImportRows(importRecords, map, signSelect.value === "negative");
-  let text = result.expenses.length + " expenses";
-  if (result.incomes.length) text += " and " + result.incomes.length + " money-in rows (paychecks, deposits)";
+  const result = readImportRows(rowsToImport(), map, signSelect.value === "negative");
+  let text = plural(result.expenses.length, "expense");
+  if (result.incomes.length) text += " and " + plural(result.incomes.length, "money-in row") + " (paychecks, deposits)";
   text += " ready to import.";
-  if (result.invalid) text += " " + result.invalid + " rows without a valid date or amount will be skipped.";
+  if (leftOut.size) text += " " + plural(leftOut.size, "row") + " left out by you.";
+  if (result.invalid) text += " " + plural(result.invalid, "row") + " without a valid date or amount will be skipped.";
   if (!map.item) text += " No budget item column chosen: expenses come in as Uncategorized, and you can pick an item for each one later in Transactions.";
   summary.textContent = text;
   const count = result.expenses.length + result.incomes.length;
   runBtn.disabled = count === 0;
-  runBtn.textContent = "Import " + count + " rows";
+  runBtn.textContent = "Import " + plural(count, "row");
+  updateMoreLabel(map);
 }
+
+// The rows that will be imported: all except the unchecked ones
+function rowsToImport() {
+  return importRecords.filter((r) => !leftOut.has(r));
+}
+
+document.getElementById("sample-all").addEventListener("click", () => {
+  showAllRows = !showAllRows;
+  updateImportPreview();
+});
+
+// "More options": budget item, group, type and note columns
+const moreBtn = document.getElementById("map-more-btn");
+function setMoreOptions(open) {
+  document.getElementById("map-more").hidden = !open;
+  moreBtn.setAttribute("aria-expanded", String(open));
+}
+function updateMoreLabel(map) {
+  const open = moreBtn.getAttribute("aria-expanded") === "true";
+  const chosen = ["item", "group", "type", "note"].filter((f) => map[f]).length;
+  moreBtn.textContent = open ? "Fewer options" : "More options" + (chosen ? " (" + chosen + " chosen)" : "");
+}
+moreBtn.addEventListener("click", () => {
+  setMoreOptions(moreBtn.getAttribute("aria-expanded") !== "true");
+  updateMoreLabel(currentMap());
+});
 
 Object.values(mapSelects).forEach((s) => s.addEventListener("change", updateImportPreview));
 signSelect.addEventListener("change", updateImportPreview);
@@ -279,7 +341,7 @@ document.getElementById("import-cancel").addEventListener("click", () => {
 
 document.getElementById("import-run").addEventListener("click", () => {
   const { expenses, incomes, invalid } =
-    readImportRows(importRecords, currentMap(), signSelect.value === "negative");
+    readImportRows(rowsToImport(), currentMap(), signSelect.value === "negative");
   const stats = applyImport(data, expenses, incomes, newId, importSource);
   // New months without any budget items (e.g. a bank file without
   // categories) get the usual starter groups, ready to fill in.
@@ -293,7 +355,6 @@ document.getElementById("import-run").addEventListener("click", () => {
 
   // Tell the user exactly what happened
   const parts = [];
-  const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
   if (stats.added || stats.incomesAdded) {
     const first = monthLabel(stats.months[0]);
     const last = monthLabel(stats.months[stats.months.length - 1]);

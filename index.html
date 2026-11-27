@@ -179,47 +179,44 @@
         <div id="import-step" hidden>
           <p class="import-files" id="import-files"></p>
 
-          <p class="import-hint" id="import-hint">Tell us which column in your file is which. We've filled in our best guesses: check them against the example below.</p>
+          <p class="import-hint" id="import-hint">Tell us which column in your file is which. We've filled in our best guesses: check them against your rows below.</p>
 
-          <!-- Column choices. "Needed" first, the rest is optional. -->
-          <div class="map-section">
-            <h3>Needed</h3>
-            <div class="map-grid">
-              <label>Date <small>When you paid</small> <select id="map-date"></select></label>
-              <label>Amounts are in
-                <small>Most files have one Amount column</small>
-                <select id="map-amount-mode">
-                  <option value="one">One column</option>
-                  <option value="two">Two columns: money out and money in</option>
-                </select>
-              </label>
-              <label id="map-amount-label">Amount <small>How much</small> <select id="map-amount"></select></label>
-              <label id="map-sign-label">Spending shows as
-                <small>Look at a purchase in your file</small>
-                <select id="map-sign">
-                  <option value="negative">minus numbers, like -45.00</option>
-                  <option value="positive">plain numbers, like 45.00</option>
-                </select>
-              </label>
-              <label id="map-out-label" hidden>Money out <small>Spending, often "Debit"</small> <select id="map-moneyOut"></select></label>
-              <label id="map-in-label" hidden>Money in <small>Paychecks, often "Credit"</small> <select id="map-moneyIn"></select></label>
-            </div>
+          <!-- Column choices: one column on phones, two on wider screens -->
+          <div class="map-grid">
+            <label>Date <small>When you paid</small> <select id="map-date"></select></label>
+            <label>How does your file show amounts?
+              <select id="map-amount-mode">
+                <option value="one">One column</option>
+                <option value="two">Two columns (out / in)</option>
+              </select>
+            </label>
+            <label id="map-amount-label">Amount <small>How much</small> <select id="map-amount"></select></label>
+            <label id="map-sign-label">Spending shows as
+              <small>Look at a purchase in your file</small>
+              <select id="map-sign">
+                <option value="negative">minus numbers, like -45.00</option>
+                <option value="positive">plain numbers, like 45.00</option>
+              </select>
+            </label>
+            <label id="map-out-label" hidden>Money out <small>Spending, often "Debit"</small> <select id="map-moneyOut"></select></label>
+            <label id="map-in-label" hidden>Money in <small>Paychecks, often "Credit"</small> <select id="map-moneyIn"></select></label>
+            <label>Merchant <small>Who you paid, often "Description"</small> <select id="map-merchant"></select></label>
           </div>
 
-          <div class="map-section">
-            <h3>Optional</h3>
-            <div class="map-grid">
-              <label>Merchant <small>Who you paid, often "Description"</small> <select id="map-merchant"></select></label>
-              <label>Budget item <small>A category, like Groceries</small> <select id="map-item"></select></label>
-              <label>Budget group <small>A group of items, like Food</small> <select id="map-group"></select></label>
-              <label>Income or expense <small>A column that says which</small> <select id="map-type"></select></label>
-              <label>Note <small>Memo or note</small> <select id="map-note"></select></label>
-            </div>
+          <!-- Less common columns, behind a link -->
+          <button type="button" class="link-btn more-btn" id="map-more-btn" aria-expanded="false">More options</button>
+          <div class="map-grid" id="map-more" hidden>
+            <label>Budget item <small>A category, like Groceries</small> <select id="map-item"></select></label>
+            <label>Budget group <small>A group of items, like Food</small> <select id="map-group"></select></label>
+            <label>Type column <small>Only if your file has one (income / expense)</small> <select id="map-type"></select></label>
+            <label>Note <small>Memo or note</small> <select id="map-note"></select></label>
           </div>
 
-          <!-- The first rows the way they will be imported -->
-          <h3 class="sample-title">Example: your first rows</h3>
+          <!-- The rows the way they will be imported; uncheck to leave one out -->
+          <h3 class="sample-title">Your rows</h3>
+          <p class="sample-hint">Uncheck any row you don't want to import. Credit card payments aren't income – uncheck them.</p>
           <ul class="import-sample" id="import-sample"></ul>
+          <button type="button" class="link-btn" id="sample-all" hidden>Show all</button>
 
           <p class="import-hint">Your file:</p>
           <div class="table-wrap"><table id="import-table"></table></div>

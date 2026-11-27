@@ -389,34 +389,44 @@ input:focus { outline: none; border-color: var(--blue); background: #fff; }
 .settings > .btn { display: block; width: 100%; margin-top: 8px; }
 
 .import-files { color: var(--text) !important; font-weight: 600; margin-top: 16px !important; }
-.import-hint { margin-bottom: 6px !important; }
+.import-hint { margin-bottom: 12px !important; }
+/* Phones: one field per line. Wider screens: two columns. */
 .map-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px 12px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
 }
+@media (min-width: 600px) {
+  .map-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }
+}
+.map-grid select { width: 100%; }
 .map-grid label { display: flex; flex-direction: column; gap: 2px; font-size: 14px; font-weight: 600; color: var(--text); }
 /* Plain-language help under each column name */
 .map-grid label small { font-size: 12px; font-weight: 400; color: var(--muted); margin-bottom: 2px; }
-.map-section { margin-top: 12px; }
-.map-section h3, .sample-title {
-  margin: 0 0 8px;
+.sample-title {
+  margin: 0 0 4px;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
 }
 .sample-title { margin-top: 16px; }
+.sample-hint { font-size: 14px !important; margin-bottom: 8px !important; }
+.settings .more-btn { margin: 10px 0 0; }
 /* "Nov 2 · KROGER · spent $87.45 · Groceries": the first rows in plain words */
 .import-sample {
-  margin: 0 0 12px;
+  margin: 0 0 4px;
   padding: 8px 12px;
   list-style: none;
   border-radius: 8px;
   background: #e8f0fe;
   font-size: 14px;
 }
-.import-sample li { padding: 3px 0; }
+.import-sample li { padding: 4px 0; }
+.import-sample label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.import-sample input { width: 20px; height: 20px; margin: 0; flex: none; }
+.import-sample span { min-width: 0; overflow-wrap: anywhere; }
+.import-sample li.left-out span { color: var(--muted); text-decoration: line-through; }
 .import-sample:empty { display: none; }
 /* Smaller text button, e.g. "Import from another app or bank (CSV)" */
 .link-btn {
