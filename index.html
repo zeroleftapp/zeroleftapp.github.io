@@ -40,6 +40,7 @@
         <li><strong>No subscription, no account.</strong> No sign-up and no bank connection.</li>
         <li><strong>Your data is yours.</strong> Old months are never locked. Export everything anytime.</li>
         <li><strong>Works everywhere.</strong> iPhone, Android and computer, even offline.</li>
+        <li><strong>No AI, no tracking.</strong> Your data stays on your phone.</li>
       </ul>
 
       <p class="welcome-footer">
@@ -230,26 +231,33 @@
 
       <label class="amount-field">
         <span>$</span>
-        <input id="tx-amount" inputmode="decimal" placeholder="0.00" autocomplete="off" aria-label="Amount">
+        <!-- inputmode="decimal" opens the number keypad on phones -->
+        <input id="tx-amount" inputmode="decimal" enterkeyhint="done" placeholder="0.00" autocomplete="off" autofocus aria-label="Amount">
       </label>
+      <p class="error" id="tx-error"></p>
 
       <div class="field-row">
         <input id="tx-merchant" placeholder="Merchant (optional)" autocomplete="off" aria-label="Merchant">
         <input id="tx-date" type="date" aria-label="Date">
       </div>
 
-      <p class="pick-label">Budget item</p>
+      <!-- Adding: tapping an item saves. Editing: tap an item, then Save. -->
+      <p class="pick-label" id="pick-label">Tap a budget item to save</p>
       <div id="tx-items"></div>
-
-      <p class="error" id="tx-error"></p>
 
       <div class="actions">
         <button type="button" class="btn danger" id="tx-delete">Delete</button>
         <button type="button" class="btn" id="tx-cancel">Cancel</button>
-        <button type="submit" class="btn primary">Save</button>
+        <button type="submit" class="btn primary" id="tx-save">Save</button>
       </div>
     </form>
   </dialog>
+
+  <!-- "Saved $12.50 to Groceries · Undo" after a quick entry -->
+  <div class="toast" id="toast" role="status" hidden>
+    <span id="toast-text"></span>
+    <button class="toast-undo" id="toast-undo">Undo</button>
+  </div>
 
   <script src="csv.js"></script>
   <script src="importer.js"></script>

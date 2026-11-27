@@ -481,31 +481,58 @@ const deleteBtn = document.getElementById("tx-delete");
 let editing = null;        // the transaction being edited, or null when adding
 let selectedItemId = null; // which budget item chip is selected
 
-// Show every budget item as a tappable chip, grouped like the budget.
+// Fast entry: + opens the sheet with the amount field focused (number
+// keypad). Recently used items are shown first, and when adding a new
+// expense, tapping an item saves it right away: + → amount → item = done.
+// When editing, tapping an item only selects it, and Save saves.
+
+const RECENT_COUNT = 6;
+
+// Budget items used most recently (newest expense first) that exist
+// in the month on screen.
+function recentItemIds() {
+  const ids = [];
+  for (let i = data.transactions.length - 1; i >= 0 && ids.length < RECENT_COUNT; i--) {
+    const id = data.transactions[i].itemId;
+    if (id && !ids.includes(id) && findItem(id)) ids.push(id);
+  }
+  return ids;
+}
+
+function chipRow(labelText, items, extraClass) {
+  const label = document.createElement("div");
+  label.className = "chip-group";
+  label.textContent = labelText;
+  const chips = document.createElement("div");
+  chips.className = "chips" + (extraClass ? " " + extraClass : "");
+  items.forEach((item) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "chip" + (item.id === selectedItemId ? " selected" : "");
+    chip.dataset.itemId = item.id;
+    chip.textContent = item.name || "Untitled";
+    chip.addEventListener("click", () => pickItem(item.id));
+    chips.append(chip);
+  });
+  itemsBox.append(label, chips);
+}
+
+// "Recent" first, then every budget item grouped like the budget.
 function renderItemChips() {
   itemsBox.innerHTML = "";
+  const recent = recentItemIds().map((id) => findItem(id).item);
+  if (recent.length) chipRow("Recent", recent, "recent");
   month.groups.forEach((group) => {
-    if (!group.items.length) return;
-    const label = document.createElement("div");
-    label.className = "chip-group";
-    label.textContent = group.name || "Untitled";
-    const chips = document.createElement("div");
-    chips.className = "chips";
-    group.items.forEach((item) => {
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = "chip" + (item.id === selectedItemId ? " selected" : "");
-      chip.textContent = item.name || "Untitled";
-      chip.addEventListener("click", () => {
-        selectedItemId = item.id;
-        itemsBox.querySelectorAll(".chip").forEach((c) => c.classList.remove("selected"));
-        chip.classList.add("selected");
-        errorBox.textContent = "";
-      });
-      chips.append(chip);
-    });
-    itemsBox.append(label, chips);
+    if (group.items.length) chipRow(group.name || "Untitled", group.items);
   });
+}
+
+function pickItem(itemId) {
+  selectedItemId = itemId;
+  itemsBox.querySelectorAll(".chip").forEach((c) =>
+    c.classList.toggle("selected", c.dataset.itemId === itemId));
+  errorBox.textContent = "";
+  if (!editing) saveExpense(); // adding: one tap on an item saves
 }
 
 // Open the sheet empty (new expense) or filled in (editing one).
@@ -515,14 +542,18 @@ function openExpenseSheet(transaction) {
   // New expenses default to today, or the 1st if viewing another month
   const defaultDate = currentMonthKey() === viewMonth ? todayString() : viewMonth + "-01";
   document.getElementById("tx-title").textContent = editing ? "Edit expense" : "Add expense";
+  document.getElementById("pick-label").textContent =
+    editing ? "Budget item" : "Tap a budget item to save";
   amountInput.value = editing ? amountForInput(editing.amount) : "";
   merchantInput.value = editing ? editing.merchant : "";
   dateInput.value = editing ? editing.date : defaultDate;
   selectedItemId = editing && findItem(editing.itemId) ? editing.itemId : null;
   deleteBtn.hidden = !editing;
+  document.getElementById("tx-save").hidden = !editing;
   errorBox.textContent = "";
   renderItemChips();
   dialog.showModal();
+  // Focus right away, still inside the tap, so phones open the keypad
   amountInput.focus();
 }
 
@@ -531,17 +562,17 @@ function closeExpenseSheet() {
   editing = null;
 }
 
-form.addEventListener("submit", (e) => {
-  e.preventDefault();
+// Check the form and save. Used by item taps (adding) and Save (editing).
+function saveExpense() {
   const amount = toCents(amountInput.value);
   // Negative amounts are allowed: a refund lowers what was spent
   if (amount === 0) {
-    errorBox.textContent = "Enter an amount.";
+    errorBox.textContent = editing ? "Enter an amount." : "Enter the amount first, then tap a budget item.";
     amountInput.focus();
     return;
   }
   if (!selectedItemId) {
-    errorBox.textContent = "Pick a budget item.";
+    errorBox.textContent = editing ? "Pick a budget item." : "Tap a budget item to save.";
     return;
   }
   if (!dateInput.value) {
@@ -555,14 +586,50 @@ form.addEventListener("submit", (e) => {
     merchant: merchantInput.value.trim(),
     itemId: selectedItemId,
   };
+  const wasEditing = !!editing;
+  let added = null;
   if (editing) {
     Object.assign(editing, fields);
   } else {
-    data.transactions.push({ id: newId(), type: "expense", note: "", ...fields });
+    added = { id: newId(), type: "expense", note: "", ...fields };
+    data.transactions.push(added);
   }
   saveData();
   closeExpenseSheet();
   render();
+
+  // One tap saves, so make a wrong tap easy to take back
+  if (!wasEditing) {
+    showToast("Saved " + formatMoney(amount) + " to " + (findItem(added.itemId).item.name || "Untitled"), () => {
+      data.transactions = data.transactions.filter((t) => t !== added);
+      saveData();
+      render();
+    });
+  }
+}
+
+form.addEventListener("submit", (e) => {
+  e.preventDefault();
+  saveExpense();
+});
+
+// ===== Toast: short message with Undo at the bottom of the screen =====
+const toast = document.getElementById("toast");
+let toastTimer = null;
+let toastUndo = null;
+
+function showToast(text, onUndo) {
+  document.getElementById("toast-text").textContent = text;
+  toastUndo = onUndo;
+  toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.hidden = true; }, 5000);
+}
+
+document.getElementById("toast-undo").addEventListener("click", () => {
+  toast.hidden = true;
+  if (toastUndo) toastUndo();
+  toastUndo = null;
 });
 
 deleteBtn.addEventListener("click", () => {
