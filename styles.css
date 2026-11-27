@@ -557,7 +557,7 @@ select:disabled { opacity: 0.5; }
 }
 .chips.recent .chip.selected { color: #fff; }
 
-/* "Saved $12.50 to Groceries · Undo" */
+/* "Added $12.50 to Groceries · Undo" */
 .toast {
   position: fixed;
   left: 50%;

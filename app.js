@@ -600,7 +600,7 @@ function saveExpense() {
 
   // One tap saves, so make a wrong tap easy to take back
   if (!wasEditing) {
-    showToast("Saved " + formatMoney(amount) + " to " + (findItem(added.itemId).item.name || "Untitled"), () => {
+    showToast("Added " + formatMoney(amount) + " to " + (findItem(added.itemId).item.name || "Untitled"), () => {
       data.transactions = data.transactions.filter((t) => t !== added);
       saveData();
       render();
