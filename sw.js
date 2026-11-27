@@ -11,7 +11,7 @@
 //    rest are never stale. The saved copy is only used offline.
 // 3. pwa.js reloads the app the next time it's opened after an update.
 
-const VERSION = "2026-11-25-2219";
+const VERSION = "2026-11-27-1256";
 const CACHE = "budget-app-" + VERSION;
 
 // Everything the app needs to start without internet.
