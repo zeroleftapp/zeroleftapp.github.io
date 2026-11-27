@@ -179,7 +179,7 @@ importFile.addEventListener("change", async () => {
     : "Tell us which column in your file is which. We've filled in our best guesses: check them against your rows below.";
   document.querySelector(".sample-hint").textContent = everyDollar
     ? "Uncheck any row you don't want to import."
-    : "Uncheck any row you don't want to import. Credit card payments aren't income – uncheck them.";
+    : "Uncheck any row you don't want to import. Credit card payments aren't income or spending – uncheck them.";
   setMoreOptions(false);
   document.getElementById("import-files").textContent =
     plural(importRecords.length, "row") + " from " + plural(names.length, "file") +
