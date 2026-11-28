@@ -312,9 +312,12 @@
             <option value="12">Every year</option>
           </select>
         </label>
-        <label id="bill-group-label">Budget group <select id="bill-group"></select></label>
+        <label id="bill-item-label">Budget item
+          <small>The item this bill pays, or a new one</small>
+          <select id="bill-item"></select>
+        </label>
       </div>
-      <p class="bill-help">The amount goes into your plan in each month the bill is due.</p>
+      <p class="bill-help">The amount goes into your plan in each month the bill is due. An expense in this item close to the due date marks the bill paid.</p>
       <p class="error" id="bill-error"></p>
       <div class="actions">
         <button type="button" class="btn danger" id="bill-delete">Delete</button>

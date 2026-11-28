@@ -194,6 +194,24 @@ function runTests() {
     upcomingBills([rent, car], [], "2026-11-20", "2026-12-15").map((u) => [u.bill.name, u.date, u.overdue]),
     [["Rent", "2026-11-01", true], ["Rent", "2026-12-01", false]]);
   check("paid bills drop out", upcomingBills([rent], paidTx, "2026-11-28", "2027-01-01").map((u) => u.date), []);
+  // Ordinary expense close to the due date and amount marks the bill paid
+  const ex = (date, amount, itemId) => ({ type: "expense", date, amount, itemId: itemId || "rentItem" });
+  check("expense 3 days early pays bill (next month)", billIsPaid(rent, "2026-12", [ex("2026-11-28", 125000)]), true);
+  check("expense within 5 %", billIsPaid(rent, "2026-12", [ex("2026-12-07", 131000)]), true);
+  check("expense 8 days late doesn't", billIsPaid(rent, "2026-12", [ex("2026-12-09", 125000)]), false);
+  check("amount off by more than 5 %", billIsPaid(rent, "2026-12", [ex("2026-12-01", 140000)]), false);
+  check("other item doesn't", billIsPaid(rent, "2026-12", [ex("2026-12-01", 125000, "x")]), false);
+  check("billPaidBy finds the bill", (billPaidBy(ex("2026-11-28", 125000), [car, rent]) || {}).name, "Rent");
+  check("billPaidBy none", billPaidBy(ex("2026-11-15", 125000), [rent]), null);
+
+  // Suggest an existing item from the bill's name
+  const sg = [{ items: [{ id: "a", name: "Groceries" }, { id: "b", name: "Mortgage/Rent" }] }, { items: [{ id: "c", name: "Phone" }] }];
+  check("suggest item", ["Rent", "phone bill", "Netflix", "TV"].map((x) => suggestBillItem(x, sg)), ["b", "c", "", ""]);
+  const linked = { id: "l", itemId: "b", name: "Rent", amount: 100000, due: "2026-12-01", every: 1, newItem: false };
+  const m2 = { groups: [{ id: "h", name: "Housing", items: [{ id: "b", name: "Mortgage/Rent", planned: 0 }] }] };
+  applyBillsToMonth(m2, "2026-12", [linked], () => "z");
+  check("linked item keeps its name", [m2.groups[0].items[0].name, m2.groups[0].items[0].planned], ["Mortgage/Rent", 100000]);
+
   check("over a year end", upcomingBills([car], [], "2026-12-20", "2027-01-05").map((u) => u.date), ["2026-12-31"]);
 
   return out;

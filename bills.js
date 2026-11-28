@@ -4,10 +4,15 @@
 // A bill: { id, itemId, name, amount, due, every, group }
 //   due   = the first due date, "YYYY-MM-DD"
 //   every = 1 (every month), 3 (every 3 months) or 12 (every year)
-//   itemId = the budget item the bill fills in (same id in every month)
-//   group = name of the budget group the item goes in
-// A bill is paid in a month when there's an expense with its billId
-// dated in that month.
+//   itemId = the budget item the bill fills in (same id in every month):
+//            an existing item (e.g. "Mortgage/Rent") or one made for the bill
+//   newItem = true when the item was made for the bill (it then follows
+//            the bill's name)
+//   group = name of the budget group the item is in
+// A bill is paid in a month when
+// - "Paid" was tapped (an expense with its billId in that month), or
+// - an ordinary expense in the bill's item is within 7 days of the due
+//   date and its amount is within 5 % of the bill's amount.
 
 const BILL_REPEATS = { 1: "Every month", 3: "Every 3 months", 12: "Every year" };
 
@@ -29,8 +34,54 @@ function billDueDate(bill, monthKey) {
   return monthKey + "-" + String(day).padStart(2, "0");
 }
 
+const PAID_WINDOW_DAYS = 7;
+const PAID_AMOUNT_TOLERANCE = 0.05;
+
+// Days from one date to another: ("2026-11-28", "2026-12-01") = 3
+function daysBetween(a, b) {
+  const utc = (s) => Date.UTC(Number(s.slice(0, 4)), Number(s.slice(5, 7)) - 1, Number(s.slice(8, 10)));
+  return Math.round((utc(b) - utc(a)) / 86400000);
+}
+
+// Does an ordinary expense look like paying this bill on this due date?
+function expensePaysBill(t, bill, due) {
+  return t.type === "expense" && !t.billId && t.itemId === bill.itemId && !!t.date &&
+    Math.abs(daysBetween(due, t.date)) <= PAID_WINDOW_DAYS &&
+    Math.abs(t.amount - bill.amount) <= bill.amount * PAID_AMOUNT_TOLERANCE;
+}
+
 function billIsPaid(bill, monthKey, transactions) {
-  return transactions.some((t) => t.billId === bill.id && t.date && t.date.startsWith(monthKey));
+  const due = billDueDate(bill, monthKey);
+  return transactions.some((t) =>
+    (t.billId === bill.id && t.date && t.date.startsWith(monthKey)) ||
+    (due && expensePaysBill(t, bill, due)));
+}
+
+// The bill (and due date) that an ordinary expense pays, or null.
+// Used to say "Rent bill paid" after adding an expense.
+function billPaidBy(t, bills) {
+  for (const bill of bills) {
+    for (const key of [t.date.slice(0, 7), nextMonthKey(t.date.slice(0, 7)), prevMonthKey(t.date.slice(0, 7))]) {
+      const due = billDueDate(bill, key);
+      if (due && expensePaysBill(t, bill, due)) return bill;
+    }
+  }
+  return null;
+}
+
+// Suggest an existing budget item for a bill name: one whose name shares
+// a word with it ("Rent" -> "Mortgage/Rent", "Phone bill" -> "Phone").
+// groups = a month's groups. Returns the item id, or "".
+function suggestBillItem(billName, groups) {
+  const words = (s) => String(s).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3);
+  const wanted = words(billName);
+  if (!wanted.length) return "";
+  for (const g of groups) {
+    for (const it of g.items) {
+      if (words(it.name).some((w) => wanted.includes(w))) return it.id;
+    }
+  }
+  return "";
 }
 
 // Put bills into one month's plan: in a month where a bill is due, its
@@ -52,7 +103,7 @@ function applyBillsToMonth(month, monthKey, bills, makeId) {
       item = { id: bill.itemId, name: bill.name, planned: 0 };
       group.items.push(item);
     }
-    item.name = bill.name;
+    if (bill.newItem !== false) item.name = bill.name;
     item.planned = due ? bill.amount : 0;
   });
 }
@@ -88,6 +139,11 @@ function upcomingBills(bills, transactions, today, until) {
     });
   }
   return list.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function prevMonthKey(key) {
+  const [y, m] = key.split("-").map(Number);
+  return m === 1 ? (y - 1) + "-12" : y + "-" + String(m - 1).padStart(2, "0");
 }
 
 function nextMonthKey(key) {

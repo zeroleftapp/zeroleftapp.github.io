@@ -603,7 +603,12 @@ function saveExpense() {
 
   // One tap saves, so make a wrong tap easy to take back
   if (!wasEditing) {
-    showToast("Added " + formatMoney(amount) + " to " + (findItem(added.itemId).item.name || "Untitled"), () => {
+    // An expense that matches a bill (same item, about the same amount,
+    // near the due date) marks it paid; say so. Undo removes the expense,
+    // so the bill is unpaid again.
+    const paidBill = billPaidBy(added, data.bills);
+    showToast("Added " + formatMoney(amount) + " to " + (findItem(added.itemId).item.name || "Untitled") +
+      (paidBill ? " · " + paidBill.name + " bill paid" : ""), () => {
       data.transactions = data.transactions.filter((t) => t !== added);
       saveData();
       render();
@@ -761,6 +766,18 @@ document.getElementById("bills-all-btn").addEventListener("click", () => {
 const billDialog = document.getElementById("bill-dialog");
 const billError = document.getElementById("bill-error");
 let editingBill = null;
+let itemTouched = false; // the user picked the item themselves
+
+// While typing the name, suggest a matching item ("Rent" -> "Mortgage/Rent"),
+// or a new item in Bills. Stops once the user picks one themselves.
+function suggestItemForBill() {
+  if (itemTouched) return;
+  const name = document.getElementById("bill-name").value;
+  const id = month ? suggestBillItem(name, month.groups) : "";
+  document.getElementById("bill-item").value = id || "new:Bills";
+}
+document.getElementById("bill-name").addEventListener("input", suggestItemForBill);
+document.getElementById("bill-item").addEventListener("change", () => { itemTouched = true; });
 
 function openBillSheet(bill) {
   editingBill = bill || null;
@@ -778,14 +795,27 @@ function openBillSheet(bill) {
   }
   document.getElementById("bill-due").value = due;
   document.getElementById("bill-every").value = String(bill ? bill.every : 1);
-  // The group is chosen once, when adding (the item can be moved by hand)
-  const groupSelect = document.getElementById("bill-group");
-  groupSelect.innerHTML = "";
-  const names = month ? month.groups.map((g) => g.name).filter(Boolean) : DEFAULT_GROUPS.map((g) => g.name);
-  if (!names.includes("Bills")) names.push("Bills");
-  names.forEach((n) => groupSelect.append(new Option(n, n)));
-  groupSelect.value = names.includes("Housing") ? "Housing" : "Bills";
-  document.getElementById("bill-group-label").hidden = !!bill;
+  // The budget item is chosen once, when adding: an existing item
+  // (grouped by budget group) or a new item in a group.
+  const itemSelect = document.getElementById("bill-item");
+  itemSelect.innerHTML = "";
+  const groups = month ? month.groups : [];
+  groups.forEach((g) => {
+    if (!g.items.length) return;
+    const og = document.createElement("optgroup");
+    og.label = g.name || "Untitled";
+    g.items.forEach((it) => og.append(new Option(it.name || "Untitled", it.id)));
+    itemSelect.append(og);
+  });
+  const newGroup = document.createElement("optgroup");
+  newGroup.label = "New item";
+  const groupNames = groups.map((g) => g.name).filter(Boolean);
+  if (!groupNames.includes("Bills")) groupNames.unshift("Bills");
+  groupNames.forEach((n) => newGroup.append(new Option("New item in " + n, "new:" + n)));
+  itemSelect.append(newGroup);
+  itemTouched = false;
+  suggestItemForBill();
+  document.getElementById("bill-item-label").hidden = !!bill;
   document.getElementById("bill-delete").hidden = !bill;
   billError.textContent = "";
   billDialog.showModal();
@@ -804,7 +834,13 @@ document.getElementById("bill-form").addEventListener("submit", (e) => {
   if (editingBill) {
     Object.assign(editingBill, fields);
   } else {
-    data.bills.push({ id: newId(), itemId: newId(), group: document.getElementById("bill-group").value, ...fields });
+    const choice = document.getElementById("bill-item").value;
+    if (choice.startsWith("new:")) {
+      data.bills.push({ id: newId(), itemId: newId(), newItem: true, group: choice.slice(4), ...fields });
+    } else {
+      const found = findItem(choice);
+      data.bills.push({ id: newId(), itemId: choice, newItem: false, group: found ? found.group.name : "Bills", ...fields });
+    }
   }
   addBillsToFutureMonths();
   saveData();

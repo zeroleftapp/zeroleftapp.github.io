@@ -694,4 +694,5 @@ select:disabled { opacity: 0.5; }
   color: var(--text);
   min-width: 0;
 }
+.bill-fields label small { font-size: 12px; font-weight: 400; color: var(--muted); }
 .bill-help { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
