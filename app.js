@@ -23,12 +23,13 @@ function loadData() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && saved.months) {
       saved.transactions = saved.transactions || [];
+      saved.bills = saved.bills || [];
       return saved;
     }
   } catch (e) {
     console.warn("Could not read saved data", e);
   }
-  return { version: 1, months: {}, transactions: [] };
+  return { version: 1, months: {}, transactions: [], bills: [] };
 }
 
 function saveData() {
@@ -378,14 +379,16 @@ function renderGroups() {
     const list = document.createElement("ul");
     list.className = "rows";
     group.items.forEach((item) => {
-      list.append(
-        rowElement(item, "item", () => {
-          if (!confirm(`Delete "${item.name || "this item"}"?\nExpenses in it will stay, but become uncategorized.`)) return;
-          group.items = group.items.filter((x) => x !== item);
-          saveData();
-          render();
-        })
-      );
+      const row = rowElement(item, "item", () => {
+        if (!confirm(`Delete "${item.name || "this item"}"?\nExpenses in it will stay, but become uncategorized.`)) return;
+        group.items = group.items.filter((x) => x !== item);
+        saveData();
+        render();
+      });
+      // Items that belong to a bill show "Bill · due Nov 15"
+      const bill = data.bills.find((b) => b.itemId === item.id);
+      if (bill) row.append(billTag(bill));
+      list.append(row);
     });
 
     const add = document.createElement("button");
@@ -649,6 +652,180 @@ dialog.addEventListener("click", (e) => {
 
 document.getElementById("fab").addEventListener("click", () => openExpenseSheet(null));
 
+// ===== Recurring bills =====
+// The logic is in bills.js. Here: the "Due before payday" card,
+// the add / edit sheet and the "Bill · due ..." line on budget items.
+
+// Put the bills into a month's plan (after creating or copying it).
+function addBillsToMonth(key) {
+  applyBillsToMonth(data.months[key], key, data.bills, newId);
+}
+
+// After adding or changing a bill: update this month and later months.
+// Past months are left as they are.
+function addBillsToFutureMonths() {
+  Object.keys(data.months).forEach((key) => {
+    if (key >= currentMonthKey()) addBillsToMonth(key);
+  });
+}
+
+function billTag(bill) {
+  const tag = document.createElement("button");
+  tag.className = "row-bill";
+  const due = billDueDate(bill, viewMonth);
+  tag.textContent = !due ? "Bill · not due this month"
+    : "Bill · due " + formatDate(due) + (billIsPaid(bill, viewMonth, data.transactions) ? " · Paid ✓" : "");
+  tag.addEventListener("click", () => openBillSheet(bill));
+  return tag;
+}
+
+function renderBills() {
+  const card = document.getElementById("bills-card");
+  const hasBills = data.bills.length > 0;
+  card.hidden = !hasBills;
+  document.getElementById("add-bill-first").hidden = hasBills;
+  if (!hasBills) return;
+
+  // Up to the next paycheck, or the next 14 days if incomes have no dates
+  const today = todayString();
+  const payday = nextPayday(data.months, today);
+  const [y, m, d] = today.split("-").map(Number);
+  const in14 = new Date(y, m - 1, d + 14);
+  const until = payday || in14.getFullYear() + "-" + pad(in14.getMonth() + 1) + "-" + pad(in14.getDate());
+  document.getElementById("bills-title").textContent = payday
+    ? "Due before payday (" + formatDate(payday) + ")" : "Due in the next 2 weeks";
+  document.getElementById("bills-tip").hidden = !!payday;
+
+  const list = document.getElementById("bill-upcoming");
+  list.innerHTML = "";
+  const upcoming = upcomingBills(data.bills, data.transactions, today, until);
+  upcoming.forEach(({ bill, date, overdue }) => {
+    const li = document.createElement("li");
+    li.className = "bill-row" + (overdue ? " overdue" : "");
+    const info = document.createElement("div");
+    info.className = "bill-info";
+    const name = document.createElement("strong");
+    name.textContent = bill.name;
+    const when = document.createElement("span");
+    when.textContent = (overdue ? "Overdue · was due " : "Due ") + formatDate(date) + " · " + formatMoney(bill.amount);
+    info.append(name, when);
+    const paid = document.createElement("button");
+    paid.className = "btn paid-btn";
+    paid.textContent = "Paid";
+    paid.addEventListener("click", () => markBillPaid(bill, date));
+    li.append(info, paid);
+    list.append(li);
+  });
+  document.getElementById("bills-empty").hidden = upcoming.length > 0;
+  document.getElementById("bills-empty").textContent = payday
+    ? "Nothing due before your next paycheck." : "Nothing due in the next 2 weeks.";
+
+  // "All bills": every bill with its repeat; tap to edit
+  const all = document.getElementById("bill-all");
+  all.innerHTML = "";
+  data.bills.forEach((bill) => {
+    const li = document.createElement("li");
+    const btn = document.createElement("button");
+    btn.className = "bill-all-row";
+    btn.textContent = bill.name + " · " + formatMoney(bill.amount) + " · " + BILL_REPEATS[bill.every].toLowerCase();
+    btn.addEventListener("click", () => openBillSheet(bill));
+    li.append(btn);
+    all.append(li);
+  });
+}
+
+// "Paid": record the bill as an expense on its due date (in the bill's
+// budget item), with Undo.
+function markBillPaid(bill, date) {
+  const tx = {
+    id: newId(), type: "expense", date, amount: bill.amount,
+    merchant: bill.name, itemId: bill.itemId, note: "", billId: bill.id,
+  };
+  data.transactions.push(tx);
+  saveData();
+  render();
+  showToast("Paid " + bill.name + " " + formatMoney(bill.amount), () => {
+    data.transactions = data.transactions.filter((t) => t !== tx);
+    saveData();
+    render();
+  });
+}
+
+document.getElementById("bills-all-btn").addEventListener("click", () => {
+  const box = document.getElementById("bill-all-box");
+  box.hidden = !box.hidden;
+  document.getElementById("bills-all-btn").textContent = box.hidden ? "All bills" : "Hide all bills";
+});
+
+// Add / edit sheet
+const billDialog = document.getElementById("bill-dialog");
+const billError = document.getElementById("bill-error");
+let editingBill = null;
+
+function openBillSheet(bill) {
+  editingBill = bill || null;
+  document.getElementById("bill-title").textContent = bill ? "Edit bill" : "Add bill";
+  document.getElementById("bill-name").value = bill ? bill.name : "";
+  document.getElementById("bill-amount").value = bill ? amountForInput(bill.amount) : "";
+  // When editing: the next due date from today (the original start
+  // date may be months ago)
+  let due = bill ? bill.due : "";
+  if (bill) {
+    for (let key = currentMonthKey(), i = 0; i < 13; key = addMonths(key, 1), i++) {
+      const d = billDueDate(bill, key);
+      if (d && d >= todayString()) { due = d; break; }
+    }
+  }
+  document.getElementById("bill-due").value = due;
+  document.getElementById("bill-every").value = String(bill ? bill.every : 1);
+  // The group is chosen once, when adding (the item can be moved by hand)
+  const groupSelect = document.getElementById("bill-group");
+  groupSelect.innerHTML = "";
+  const names = month ? month.groups.map((g) => g.name).filter(Boolean) : DEFAULT_GROUPS.map((g) => g.name);
+  if (!names.includes("Bills")) names.push("Bills");
+  names.forEach((n) => groupSelect.append(new Option(n, n)));
+  groupSelect.value = names.includes("Housing") ? "Housing" : "Bills";
+  document.getElementById("bill-group-label").hidden = !!bill;
+  document.getElementById("bill-delete").hidden = !bill;
+  billError.textContent = "";
+  billDialog.showModal();
+  if (!bill) document.getElementById("bill-name").focus();
+}
+
+document.getElementById("bill-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const name = document.getElementById("bill-name").value.trim();
+  const amount = toCents(document.getElementById("bill-amount").value);
+  const due = document.getElementById("bill-due").value;
+  if (!name) { billError.textContent = "Give the bill a name."; return; }
+  if (amount <= 0) { billError.textContent = "Enter the amount."; return; }
+  if (!due) { billError.textContent = "Pick the next due date."; return; }
+  const fields = { name, amount, due, every: Number(document.getElementById("bill-every").value) };
+  if (editingBill) {
+    Object.assign(editingBill, fields);
+  } else {
+    data.bills.push({ id: newId(), itemId: newId(), group: document.getElementById("bill-group").value, ...fields });
+  }
+  addBillsToFutureMonths();
+  saveData();
+  billDialog.close();
+  render();
+});
+
+document.getElementById("bill-delete").addEventListener("click", () => {
+  if (!editingBill) return;
+  if (!confirm(`Delete the bill "${editingBill.name}"?\nIts budget item stays in your months, so you can delete or keep it there.`)) return;
+  data.bills = data.bills.filter((b) => b !== editingBill);
+  saveData();
+  billDialog.close();
+  render();
+});
+
+document.getElementById("bill-cancel").addEventListener("click", () => billDialog.close());
+billDialog.addEventListener("click", (e) => { if (e.target === billDialog) billDialog.close(); });
+document.getElementById("bill-add").addEventListener("click", () => openBillSheet(null));
+document.getElementById("add-bill-first").addEventListener("click", () => openBillSheet(null));
+
 // ===== Tabs =====
 let currentView = "budget"; // "budget", "transactions" or "settings"
 
@@ -681,6 +858,7 @@ document.getElementById("welcome-import-other").addEventListener("click", () => 
 // "Start fresh": this month with the default groups.
 document.getElementById("welcome-fresh").addEventListener("click", () => {
   data.months[currentMonthKey()] = freshMonth();
+  addBillsToMonth(currentMonthKey());
   saveData();
   setWelcome(false);
   showView("budget");
@@ -705,12 +883,14 @@ document.getElementById("today-btn").addEventListener("click", () => goToMonth(c
 
 document.getElementById("copy-month").addEventListener("click", (e) => {
   data.months[viewMonth] = copyMonth(e.currentTarget.dataset.source, viewMonth);
+  addBillsToMonth(viewMonth);
   saveData();
   goToMonth(viewMonth);
 });
 
 document.getElementById("fresh-month").addEventListener("click", () => {
   data.months[viewMonth] = freshMonth();
+  addBillsToMonth(viewMonth);
   saveData();
   goToMonth(viewMonth);
 });
@@ -736,6 +916,7 @@ function render() {
     renderNewMonthCard();
   }
   renderTransactions();
+  renderBills();
   updateTotals();
 }
 

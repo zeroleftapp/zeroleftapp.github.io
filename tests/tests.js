@@ -169,5 +169,32 @@ function runTests() {
   check("date-like cells", ["11/02/2026", "2026-11-02", "Nov 2, 2026", "-45.10", "12", "*"].map(looksLikeDate),
     [true, true, true, false, false, false]);
 
+  // --- Recurring bills ---
+  const rent = { id: "r", itemId: "rentItem", name: "Rent", amount: 125000, due: "2026-11-01", every: 1, group: "Housing" };
+  const car = { id: "c", itemId: "carItem", name: "Car insurance", amount: 60000, due: "2026-12-31", every: 3, group: "" };
+  const prime = { id: "p", itemId: "primeItem", name: "Prime", amount: 13900, due: "2027-01-15", every: 12, group: "Personal" };
+  check("bill monthly", ["2026-10", "2026-11", "2027-02"].map((k) => billDueDate(rent, k)), [null, "2026-11-01", "2027-02-01"]);
+  check("bill every 3 months, 31st", ["2026-12", "2027-01", "2027-03", "2027-06"].map((k) => billDueDate(car, k)),
+    ["2026-12-31", null, "2027-03-31", "2027-06-30"]);
+  check("bill yearly", ["2027-01", "2027-02", "2028-01"].map((k) => billDueDate(prime, k)), ["2027-01-15", null, "2028-01-15"]);
+
+  const dec = { incomes: [], groups: [{ id: "g1", name: "Housing", items: [] }] };
+  applyBillsToMonth(dec, "2026-12", [rent, car, prime], () => "new" + (++n));
+  check("bills fill the plan", dec.groups.map((g) => [g.name, g.items.map((i) => [i.name, i.planned])]),
+    [["Housing", [["Rent", 125000]]], ["Bills", [["Car insurance", 60000]]]]);
+  applyBillsToMonth(dec, "2027-01", [rent, car, prime], () => "new" + (++n)); // same plan used as January
+  check("bill not due -> planned 0", dec.groups.map((g) => g.items.map((i) => i.planned)), [[125000], [0], [13900]]);
+
+  const months = { "2026-11": { incomes: [{ date: "2026-11-15" }, { date: "2026-11-30" }, { date: "" }] } };
+  check("next payday", [nextPayday(months, "2026-11-10"), nextPayday(months, "2026-11-15"), nextPayday(months, "2026-11-30")],
+    ["2026-11-15", "2026-11-30", "2026-12-15"]);
+  check("no income dates -> no payday", nextPayday({ "2026-11": { incomes: [{ date: "" }] } }, "2026-11-10"), null);
+  const paidTx = [{ billId: "r", date: "2026-11-01" }, { billId: "r", date: "2026-12-01" }];
+  check("upcoming before payday",
+    upcomingBills([rent, car], [], "2026-11-20", "2026-12-15").map((u) => [u.bill.name, u.date, u.overdue]),
+    [["Rent", "2026-11-01", true], ["Rent", "2026-12-01", false]]);
+  check("paid bills drop out", upcomingBills([rent], paidTx, "2026-11-28", "2027-01-01").map((u) => u.date), []);
+  check("over a year end", upcomingBills([car], [], "2026-12-20", "2027-01-05").map((u) => u.date), ["2026-12-31"]);
+
   return out;
 }

@@ -21,6 +21,7 @@ const FILES = [
   "styles.css",
   "csv.js",
   "importer.js",
+  "bills.js",
   "app.js",
   "settings.js",
   "pwa.js",

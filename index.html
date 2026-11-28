@@ -108,6 +108,22 @@
         </div>
       </div>
 
+      <!-- Upcoming bills: unpaid bills due before the next paycheck (app.js) -->
+      <section class="card bills-card" id="bills-card" hidden>
+        <div class="card-head"><h2 id="bills-title">Due before payday</h2></div>
+        <ul class="bill-list" id="bill-upcoming"></ul>
+        <p class="empty" id="bills-empty">Nothing due before your next paycheck.</p>
+        <p class="bills-tip" id="bills-tip" hidden>Add a date to your income to see what's due before payday.</p>
+        <div id="bill-all-box" hidden>
+          <h3 class="bills-sub">All bills</h3>
+          <ul class="bill-list" id="bill-all"></ul>
+        </div>
+        <div class="bills-actions">
+          <button class="add-btn" id="bills-all-btn">All bills</button>
+          <button class="add-btn" id="bill-add">+ Add bill</button>
+        </div>
+      </section>
+
       <!-- Shown when the month has no budget yet -->
       <section class="card new-month" id="new-month" hidden>
         <h2 id="new-month-title">No budget for this month yet</h2>
@@ -136,6 +152,8 @@
       <div id="groups"></div>
 
       <button class="add-group-btn" id="add-group">+ Add group</button>
+      <!-- Shown until the first bill is added; then the bills card has the button -->
+      <button class="add-group-btn" id="add-bill-first">+ Add recurring bill</button>
       </div>
     </div>
 
@@ -279,6 +297,33 @@
     </form>
   </dialog>
 
+  <!-- Add / edit recurring bill -->
+  <dialog id="bill-dialog" class="sheet">
+    <form id="bill-form" novalidate>
+      <h2 id="bill-title">Add bill</h2>
+      <div class="bill-fields">
+        <label>Name <input id="bill-name" placeholder="Rent, phone, insurance…" autocomplete="off"></label>
+        <label>Amount <input id="bill-amount" inputmode="decimal" placeholder="0.00" autocomplete="off"></label>
+        <label>Next due date <input id="bill-due" type="date"></label>
+        <label>Repeats
+          <select id="bill-every">
+            <option value="1">Every month</option>
+            <option value="3">Every 3 months</option>
+            <option value="12">Every year</option>
+          </select>
+        </label>
+        <label id="bill-group-label">Budget group <select id="bill-group"></select></label>
+      </div>
+      <p class="bill-help">The amount goes into your plan in each month the bill is due.</p>
+      <p class="error" id="bill-error"></p>
+      <div class="actions">
+        <button type="button" class="btn danger" id="bill-delete">Delete</button>
+        <button type="button" class="btn" id="bill-cancel">Cancel</button>
+        <button type="submit" class="btn primary">Save</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- "Added $12.50 to Groceries · Undo" for 5 seconds after a quick entry -->
   <div class="toast" id="toast" role="status" hidden>
     <span id="toast-text"></span>
@@ -287,6 +332,7 @@
 
   <script src="csv.js"></script>
   <script src="importer.js"></script>
+  <script src="bills.js"></script>
   <script src="app.js"></script>
   <script src="settings.js"></script>
   <script src="pwa.js"></script>

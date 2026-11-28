@@ -45,6 +45,7 @@ restoreFile.addEventListener("change", async () => {
     Object.keys(data).forEach((k) => delete data[k]);
     Object.assign(data, backup);
     data.transactions = Array.isArray(data.transactions) ? data.transactions : [];
+    data.bills = Array.isArray(data.bills) ? data.bills : [];
     saveData();
     refreshAfterDataChange();
     alert("Backup restored.");
@@ -347,6 +348,7 @@ document.getElementById("import-run").addEventListener("click", () => {
   // categories) get the usual starter groups, ready to fill in.
   stats.monthsCreated.forEach((key) => {
     if (!data.months[key].groups.length) data.months[key].groups = freshMonth().groups;
+    addBillsToMonth(key);
   });
   saveData();
   refreshAfterDataChange();
